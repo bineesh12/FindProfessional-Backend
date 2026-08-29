@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: find-professional-backend
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/find_professional}
+    username: ${DATABASE_USERNAME:find_professional}
+    password: ${DATABASE_PASSWORD:find_professional}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:8082}
+
+app:
+  auth:
+    issuer: find-professional
+    jwt-secret: ${JWT_SECRET:}
+    access-token-minutes: ${ACCESS_TOKEN_MINUTES:15}
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:30}
+    phone-code-minutes: 10
+    expose-phone-code: ${EXPOSE_PHONE_CODE:false}
+    google-client-ids: ${GOOGLE_CLIENT_IDS:}
+    firebase-project-id: ${FIREBASE_PROJECT_ID:}
