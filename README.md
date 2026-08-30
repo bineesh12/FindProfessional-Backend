@@ -48,3 +48,16 @@ PUT /api/users/me/role
 ```
 
 `PUT /api/users/me/role` requires the backend access token and accepts `CUSTOMER`, `PROFESSIONAL`, or `BOTH`. The authenticated JWT subject identifies the user, and the response contains the updated user without rotating either token. JWTs contain stable identity claims rather than user roles. A null `role_selected_at` marks an account that still needs the first-time role screen.
+
+## Service catalog endpoints
+
+These endpoints require a backend access token and a user with the `CUSTOMER` role:
+
+```text
+GET /api/categories
+GET /api/categories/{categoryId}/services
+GET /api/services/search?query=<2-to-120-characters>
+GET /api/services/nearby?latitude=<latitude>&longitude=<longitude>&radiusKm=<1-to-100>
+```
+
+The nearby endpoint calculates distance from active service availability areas and ranks results by local popularity, distance, and service name. The radius defaults to 50 km and is limited to 100 km by the backend. Customer coordinates are used only for the request and are not persisted. A location without matching availability returns an empty JSON array.
