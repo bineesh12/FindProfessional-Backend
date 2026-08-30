@@ -13,25 +13,25 @@ class ServiceCatalogService(
     private val services: MarketplaceServiceRepository,
     private val categories: ServiceCategoryRepository,
     private val nearbyServices: NearbyServiceRepository,
-    private val authorization: CustomerAuthorizationService
+    private val authorization: CustomerAuthorizationService,
+    private val properties: CatalogProperties
 ) {
-    @Transactional(readOnly = true)
-    fun listPopular(userId: UUID): List<MarketplaceServiceResponse> {
-        authorization.requireCustomer(userId)
-        return services.findAllByPopularTrueAndActiveTrueOrderByPopularityRankAsc()
-            .map(MarketplaceService::toResponse)
-    }
-
     @Transactional(readOnly = true)
     fun listNearby(
         userId: UUID,
         latitude: Double,
         longitude: Double,
-        radiusKm: Double
+        radiusKm: Double?
     ): List<NearbyServiceResponse> {
         authorization.requireCustomer(userId)
-        validateLocation(latitude, longitude, radiusKm)
-        return nearbyServices.findNearby(latitude, longitude, radiusKm, NearbyServiceLimit)
+        val resolvedRadiusKm = radiusKm ?: properties.nearbyDefaultRadiusKm
+        validateLocation(latitude, longitude, resolvedRadiusKm)
+        return nearbyServices.findNearby(
+            latitude,
+            longitude,
+            resolvedRadiusKm,
+            properties.nearbyResultLimit
+        )
             .map { match ->
                 NearbyServiceResponse(
                     service = match.service,
@@ -70,7 +70,8 @@ class ServiceCatalogService(
     private fun validateLocation(latitude: Double, longitude: Double, radiusKm: Double) {
         if (!latitude.isFinite() || latitude !in -90.0..90.0 ||
             !longitude.isFinite() || longitude !in -180.0..180.0 ||
-            !radiusKm.isFinite() || radiusKm !in MinimumRadiusKm..MaximumRadiusKm
+            !radiusKm.isFinite() ||
+            radiusKm !in properties.nearbyMinimumRadiusKm..properties.nearbyMaximumRadiusKm
         ) {
             throw AuthException(
                 "Location coordinates or radius are invalid",
@@ -83,8 +84,5 @@ class ServiceCatalogService(
     private companion object {
         const val SearchQueryMinLength = 2
         const val SearchQueryMaxLength = 120
-        const val MinimumRadiusKm = 1.0
-        const val MaximumRadiusKm = 100.0
-        const val NearbyServiceLimit = 10
     }
 }

@@ -11,7 +11,7 @@ import java.util.UUID
 @Table(name = "service_categories")
 class ServiceCategory(
     @Id
-    val id: UUID,
+    val id: UUID = UUID.randomUUID(),
 
     @Column(nullable = false, unique = true)
     val code: String,

@@ -13,16 +13,12 @@ import java.util.UUID
 class ServiceCatalogController(
     private val serviceCatalog: ServiceCatalogService
 ) {
-    @GetMapping("/popular")
-    fun listPopular(@AuthenticationPrincipal jwt: Jwt): List<MarketplaceServiceResponse> =
-        serviceCatalog.listPopular(UUID.fromString(jwt.subject))
-
     @GetMapping("/nearby")
     fun listNearby(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestParam latitude: Double,
         @RequestParam longitude: Double,
-        @RequestParam(defaultValue = "50") radiusKm: Double
+        @RequestParam(required = false) radiusKm: Double?
     ): List<NearbyServiceResponse> = serviceCatalog.listNearby(
         userId = UUID.fromString(jwt.subject),
         latitude = latitude,

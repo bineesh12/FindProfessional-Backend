@@ -16,6 +16,11 @@ server:
   port: ${SERVER_PORT:8082}
 
 app:
+  catalog:
+    nearby-default-radius-km: ${NEARBY_DEFAULT_RADIUS_KM:50}
+    nearby-minimum-radius-km: ${NEARBY_MINIMUM_RADIUS_KM:1}
+    nearby-maximum-radius-km: ${NEARBY_MAXIMUM_RADIUS_KM:100}
+    nearby-result-limit: ${NEARBY_RESULT_LIMIT:10}
   auth:
     issuer: find-professional
     jwt-secret: ${JWT_SECRET:}

@@ -8,8 +8,6 @@ import java.util.UUID
 interface MarketplaceServiceRepository : JpaRepository<MarketplaceService, UUID> {
     fun findAllByCategoryIdAndActiveTrueOrderByNameAsc(categoryId: UUID): List<MarketplaceService>
 
-    fun findAllByPopularTrueAndActiveTrueOrderByPopularityRankAsc(): List<MarketplaceService>
-
     @Query(
         """
         SELECT service FROM MarketplaceService service

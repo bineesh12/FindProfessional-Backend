@@ -19,21 +19,8 @@ class ServiceCatalogServiceTest {
     private val categories = mock(ServiceCategoryRepository::class.java)
     private val nearbyServices = mock(NearbyServiceRepository::class.java)
     private val authorization = mock(CustomerAuthorizationService::class.java)
-    private val catalog = ServiceCatalogService(services, categories, nearbyServices, authorization)
-
-    @Test
-    fun `popular services expose backend content and category`() {
-        val userId = UUID.randomUUID()
-        val service = marketplaceService()
-        `when`(services.findAllByPopularTrueAndActiveTrueOrderByPopularityRankAsc())
-            .thenReturn(listOf(service))
-
-        val response = catalog.listPopular(userId)
-
-        verify(authorization).requireCustomer(userId)
-        assertEquals("Home renovation", response.single().name)
-        assertEquals("Home", response.single().categoryName)
-    }
+    private val properties = CatalogProperties()
+    private val catalog = ServiceCatalogService(services, categories, nearbyServices, authorization, properties)
 
     @Test
     fun `nearby services are ranked by repository and distance is rounded`() {
@@ -47,6 +34,17 @@ class ServiceCatalogServiceTest {
         verify(authorization).requireCustomer(userId)
         assertEquals(2.3, response.single().distanceKm)
         assertEquals("Home renovation", response.single().service.name)
+    }
+
+    @Test
+    fun `nearby services use configured default radius when omitted`() {
+        val userId = UUID.randomUUID()
+        `when`(nearbyServices.findNearby(59.3293, 18.0686, 50.0, 10))
+            .thenReturn(emptyList())
+
+        catalog.listNearby(userId, 59.3293, 18.0686, null)
+
+        verify(nearbyServices).findNearby(59.3293, 18.0686, 50.0, 10)
     }
 
     @Test
