@@ -1,6 +1,7 @@
 package com.findprofessional.marketplace.common
 
 import com.findprofessional.marketplace.auth.AuthException
+import com.findprofessional.marketplace.request.RequestException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -18,6 +19,11 @@ class ApiExceptionHandler {
     fun handleAuthException(exception: AuthException): ResponseEntity<ApiError> =
         ResponseEntity.status(exception.status)
             .body(ApiError(code = exception.code, message = exception.message ?: "Authentication failed"))
+
+    @ExceptionHandler(RequestException::class)
+    fun handleRequestException(exception: RequestException): ResponseEntity<ApiError> =
+        ResponseEntity.status(exception.status)
+            .body(ApiError(code = exception.code, message = exception.message ?: "Request operation failed"))
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(exception: MethodArgumentNotValidException): ResponseEntity<ApiError> =

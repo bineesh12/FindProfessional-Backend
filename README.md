@@ -57,7 +57,7 @@ These endpoints require a backend access token and a user with the `CUSTOMER` ro
 GET /api/categories
 GET /api/categories/{categoryId}/services
 GET /api/services/search?query=<2-to-120-characters>
-GET /api/services/nearby?latitude=<latitude>&longitude=<longitude>&radiusKm=<1-to-100>
+GET /api/services/nearby?latitude=<latitude>&longitude=<longitude>&radiusKm=<optional-radius>
 ```
 
-The nearby endpoint calculates distance from active service availability areas and ranks results by local popularity, distance, and service name. The radius defaults to 50 km and is limited to 100 km by the backend. Customer coordinates are used only for the request and are not persisted. A location without matching availability returns an empty JSON array.
+The nearby endpoint calculates distance from active service availability areas and ranks results by local popularity, distance, and service name. Its default, minimum, maximum, and result limit are configured through `app.catalog` environment-backed settings. The optional radius allows the client to apply a user's future distance preference without changing the API. Customer coordinates are used only for the request and are not persisted. A location without matching availability returns an empty JSON array.

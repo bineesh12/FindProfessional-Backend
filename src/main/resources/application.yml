@@ -16,6 +16,24 @@ server:
   port: ${SERVER_PORT:8082}
 
 app:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODEL:gpt-5.6-luna}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:500}
+      timeout-seconds: ${OPENAI_TIMEOUT_SECONDS:8}
+  catalog:
+    nearby-default-radius-km: ${NEARBY_DEFAULT_RADIUS_KM:50}
+    nearby-minimum-radius-km: ${NEARBY_MINIMUM_RADIUS_KM:1}
+    nearby-maximum-radius-km: ${NEARBY_MAXIMUM_RADIUS_KM:100}
+    nearby-result-limit: ${NEARBY_RESULT_LIMIT:10}
+  location:
+    postcode-resolver:
+      base-url: ${POSTCODE_RESOLVER_BASE_URL:https://nominatim.openstreetmap.org}
+      country-code: ${POSTCODE_COUNTRY_CODE:se}
+      user-agent: ${POSTCODE_RESOLVER_USER_AGENT:FindProfessional-Marketplace/0.1}
+      minimum-request-interval-millis: ${POSTCODE_RESOLVER_MINIMUM_INTERVAL_MILLIS:1000}
   auth:
     issuer: find-professional
     jwt-secret: ${JWT_SECRET:}

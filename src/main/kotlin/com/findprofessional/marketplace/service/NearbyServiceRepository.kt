@@ -43,6 +43,8 @@ class NearbyServiceRepository(
     }
 
     private companion object {
+        // Standard JPA has no spherical-distance operator. Keep the PostgreSQL
+        // calculation isolated here so callers receive a typed repository result.
         val NearbyServicesSql =
             """
             WITH candidates AS (

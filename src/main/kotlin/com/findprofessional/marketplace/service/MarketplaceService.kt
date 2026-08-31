@@ -15,7 +15,7 @@ import java.util.UUID
 @Table(name = "marketplace_services")
 class MarketplaceService(
     @Id
-    val id: UUID,
+    val id: UUID = UUID.randomUUID(),
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
