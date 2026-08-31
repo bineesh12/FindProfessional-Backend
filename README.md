@@ -12,6 +12,7 @@ DATABASE_URL=jdbc:postgresql://localhost:5432/find_professional
 DATABASE_USERNAME=find_professional
 DATABASE_PASSWORD=<local-or-managed-database-password>
 SERVER_PORT=8082
+PORTFOLIO_UPLOAD_DIRECTORY=/absolute/writable/path/to/uploads
 ```
 
 Use the OAuth client IDs whose ID tokens the backend should accept. Android, iOS, and web/server client IDs can be supplied as a comma-separated list. The mobile app sends the Google ID token to `POST /api/auth/google`; it must never send a Google client secret.
@@ -33,6 +34,12 @@ The local backend listens on port `8082` by default. A physical Android device c
 ```shell
 adb reverse tcp:8082 tcp:8082
 ```
+
+Portfolio images use local file storage during development. If
+`PORTFOLIO_UPLOAD_DIRECTORY` is omitted, files are stored under
+`~/.findprofessional/uploads`. Production deployments should provide an
+absolute writable directory or replace the local storage implementation with
+object storage.
 
 ## Authentication endpoints
 

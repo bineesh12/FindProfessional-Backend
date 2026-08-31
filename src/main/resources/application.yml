@@ -11,11 +11,19 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: ${SERVER_PORT:8082}
 
 app:
+  portfolio:
+    storage:
+      local-directory: ${PORTFOLIO_UPLOAD_DIRECTORY:${user.home}/.findprofessional/uploads}
+      public-path: /uploads
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:}
