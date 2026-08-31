@@ -2,6 +2,7 @@ package com.findprofessional.marketplace.common
 
 import com.findprofessional.marketplace.auth.AuthException
 import com.findprofessional.marketplace.request.RequestException
+import com.findprofessional.marketplace.professional.ProfessionalProfileException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -24,6 +25,11 @@ class ApiExceptionHandler {
     fun handleRequestException(exception: RequestException): ResponseEntity<ApiError> =
         ResponseEntity.status(exception.status)
             .body(ApiError(code = exception.code, message = exception.message ?: "Request operation failed"))
+
+    @ExceptionHandler(ProfessionalProfileException::class)
+    fun handleProfessionalProfileException(exception: ProfessionalProfileException): ResponseEntity<ApiError> =
+        ResponseEntity.status(exception.status)
+            .body(ApiError(code = exception.code, message = exception.message ?: "Professional profile operation failed"))
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(exception: MethodArgumentNotValidException): ResponseEntity<ApiError> =

@@ -14,6 +14,15 @@ interface MarketplaceServiceRepository : JpaRepository<MarketplaceService, UUID>
         """
         SELECT service FROM MarketplaceService service
         WHERE service.active = true
+        ORDER BY service.category.displayOrder ASC, service.name ASC
+        """
+    )
+    fun findAllActiveForProfessionalSetup(): List<MarketplaceService>
+
+    @Query(
+        """
+        SELECT service FROM MarketplaceService service
+        WHERE service.active = true
           AND (
             LOWER(service.name) LIKE :query
             OR LOWER(service.shortDescription) LIKE :query
