@@ -16,7 +16,7 @@ class RequestLocationService(
             val municipality = answers[definition.municipalityKey]?.trim() ?: return@mapNotNull null
             val postalCode = answers[definition.postcodeKey]?.trim()
                 ?: throw RequestException("A postcode is required for the request location", "POSTCODE_REQUIRED")
-            val coordinates = resolve(postalCode)
+            val coordinates = resolvePostcode(postalCode)
             RequestLocation(
                 request = request,
                 kind = definition.kind,
@@ -28,7 +28,7 @@ class RequestLocationService(
         }.takeIf { it.isNotEmpty() }?.let(requestLocations::saveAll)
     }
 
-    private fun resolve(postalCode: String): PostcodeCoordinate {
+    fun resolvePostcode(postalCode: String): PostcodeCoordinate {
         val countryCode = properties.countryCode.lowercase()
         return postcodeCoordinates.findByCountryCodeAndPostalCode(countryCode, postalCode).orElseGet {
             val resolved = try {

@@ -84,6 +84,7 @@ private fun controllerProfileRequest(serviceId: UUID) = SaveProfessionalProfileR
     businessName = "Nordic Roofs",
     primaryServiceId = serviceId,
     serviceArea = "Gothenburg",
+    servicePostalCode = "418 33",
     experienceYears = 8,
     contactEmail = "hello@example.com",
     about = "Experienced roofers serving homes across the region."
