@@ -27,6 +27,10 @@ class ProfessionalOpportunityController(
     fun getOpportunities(@AuthenticationPrincipal jwt: Jwt): ProfessionalOpportunitiesResponse =
         service.getOpportunities(UUID.fromString(jwt.subject))
 
+    @GetMapping("/offers")
+    fun getOffers(@AuthenticationPrincipal jwt: Jwt): ProfessionalOpportunitiesResponse =
+        service.getOffers(UUID.fromString(jwt.subject))
+
     @GetMapping("/{requestId}")
     fun getOpportunity(
         @AuthenticationPrincipal jwt: Jwt,

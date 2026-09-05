@@ -117,6 +117,38 @@ class ProfessionalOpportunityServiceTest {
     }
 
     @Test
+    fun `returns all offers owned by professional with request location`() {
+        val professionalId = UUID.randomUUID()
+        val marketplaceService = opportunityService()
+        val request = customerRequest(marketplaceService)
+        val offer = ProfessionalOffer(
+            professionalUserId = professionalId,
+            request = request,
+            amount = java.math.BigDecimal("12500.00"),
+            currency = "EUR",
+            status = ProfessionalOfferStatus.SUBMITTED
+        )
+        val location = RequestLocation(
+            request = request,
+            kind = RequestLocationKind.SERVICE,
+            municipality = "Gothenburg",
+            postalCode = "418 33",
+            latitude = 57.7,
+            longitude = 11.9
+        )
+        `when`(offers.findAllByProfessionalUserIdOrderByUpdatedAtDesc(professionalId)).thenReturn(listOf(offer))
+        `when`(locations.findAllByRequestIdIn(listOf(request.id))).thenReturn(listOf(location))
+
+        val response = service.getOffers(professionalId)
+
+        assertEquals(1, response.totalCount)
+        assertEquals(request.id, response.opportunities.single().id)
+        assertEquals("Gothenburg", response.opportunities.single().location?.municipality)
+        assertEquals("EUR", response.opportunities.single().offer?.currency)
+        verify(authorization).requireProfessional(professionalId)
+    }
+
+    @Test
     fun `filters requests outside professional radius and explains nearby match`() {
         val professionalId = UUID.randomUUID()
         val marketplaceService = opportunityService()
