@@ -9,6 +9,7 @@ interface ProfessionalOpportunityDeclineRepository : JpaRepository<ProfessionalO
 }
 
 interface ProfessionalOfferRepository : JpaRepository<ProfessionalOffer, UUID> {
+    fun findAllByProfessionalUserIdOrderByUpdatedAtDesc(professionalUserId: UUID): List<ProfessionalOffer>
     fun findByProfessionalUserIdAndRequestId(professionalUserId: UUID, requestId: UUID): Optional<ProfessionalOffer>
     fun findAllByProfessionalUserIdAndRequestIdIn(
         professionalUserId: UUID,

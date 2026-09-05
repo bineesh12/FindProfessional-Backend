@@ -26,6 +26,16 @@ class ProfessionalOpportunityControllerTest {
     }
 
     @Test
+    fun `offers feed uses authenticated professional subject`() {
+        val userId = UUID.randomUUID()
+        val expected = ProfessionalOpportunitiesResponse(0, emptyList())
+        `when`(service.getOffers(userId)).thenReturn(expected)
+
+        assertEquals(expected, controller.getOffers(opportunityJwt(userId)))
+        verify(service).getOffers(userId)
+    }
+
+    @Test
     fun `decline uses authenticated professional subject`() {
         val userId = UUID.randomUUID()
         val requestId = UUID.randomUUID()
