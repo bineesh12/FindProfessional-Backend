@@ -104,7 +104,7 @@ class ProfessionalOpportunityActionServiceTest {
             request.id,
             SaveProfessionalOfferRequest(
                 amount = BigDecimal("12500"),
-                currency = " sek ",
+                currency = " eur ",
                 message = "  Includes labor and materials.  ",
                 estimatedDays = 5,
                 availableStartDate = java.time.LocalDate.now().plusDays(1),
@@ -113,7 +113,7 @@ class ProfessionalOpportunityActionServiceTest {
         )
 
         assertEquals(BigDecimal("12500.00"), response.amount)
-        assertEquals("SEK", response.currency)
+        assertEquals("EUR", response.currency)
         assertEquals("Includes labor and materials.", response.message)
         assertEquals(5, response.estimatedDays)
         assertEquals(ProfessionalOfferStatus.SUBMITTED, response.status)
@@ -131,10 +131,14 @@ class ProfessionalOpportunityActionServiceTest {
         val response = service.saveDraft(
             professionalId,
             request.id,
-            SaveProfessionalOfferRequest(scopeIncluded = "  Inspect the existing roof  ")
+            SaveProfessionalOfferRequest(
+                currency = "NOK",
+                scopeIncluded = "  Inspect the existing roof  "
+            )
         )
 
         assertNull(response.amount)
+        assertEquals("NOK", response.currency)
         assertEquals("Inspect the existing roof", response.scopeIncluded)
         assertEquals(ProfessionalOfferStatus.DRAFT, response.status)
     }

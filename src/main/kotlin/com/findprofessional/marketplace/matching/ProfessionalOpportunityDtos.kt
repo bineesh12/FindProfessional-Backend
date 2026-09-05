@@ -24,8 +24,8 @@ data class ProfessionalOfferResponse(
 )
 
 data class SaveProfessionalOfferRequest(
+    val currency: String,
     val amount: BigDecimal? = null,
-    val currency: String = "SEK",
     val message: String? = null,
     val estimatedDays: Int? = null,
     val availableStartDate: LocalDate? = null,
