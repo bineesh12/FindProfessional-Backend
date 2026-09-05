@@ -2,6 +2,7 @@ package com.findprofessional.marketplace.professional
 
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
+import com.findprofessional.marketplace.request.RequestLocationService
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -13,7 +14,8 @@ class ProfessionalProfileService(
     private val services: MarketplaceServiceRepository,
     private val offerings: ProfessionalServiceOfferingRepository,
     private val portfolio: ProfessionalPortfolioService,
-    private val authorization: ProfessionalAuthorizationService
+    private val authorization: ProfessionalAuthorizationService,
+    private val locations: RequestLocationService
 ) {
     @Transactional(readOnly = true)
     fun setup(userId: UUID): ProfessionalProfileSetupResponse {
@@ -36,9 +38,19 @@ class ProfessionalProfileService(
         authorization.requireProfessional(userId)
         val businessName = request.businessName.trim()
         val serviceArea = request.serviceArea.trim()
+        val servicePostalCode = request.servicePostalCode.trim()
         val contactEmail = request.contactEmail.trim().lowercase()
         val about = request.about.trim()
-        validateNormalized(businessName, serviceArea, request.experienceYears, contactEmail, about)
+        validateNormalized(
+            businessName,
+            serviceArea,
+            servicePostalCode,
+            request.serviceRadiusKm,
+            request.experienceYears,
+            contactEmail,
+            about
+        )
+        val coordinates = locations.resolvePostcode(servicePostalCode)
         val requestedServiceIds = request.serviceIds.distinct()
         if (requestedServiceIds.isEmpty() || requestedServiceIds.size > 10 || request.primaryServiceId !in requestedServiceIds) {
             throw ProfessionalProfileException(
@@ -66,12 +78,20 @@ class ProfessionalProfileService(
                 serviceArea = serviceArea,
                 experienceYears = request.experienceYears,
                 contactEmail = contactEmail,
-                about = about
+                about = about,
+                servicePostalCode = servicePostalCode,
+                latitude = coordinates.latitude,
+                longitude = coordinates.longitude,
+                serviceRadiusKm = request.serviceRadiusKm.toDouble()
             )
         }
         profile.businessName = businessName
         profile.primaryService = primaryService
         profile.serviceArea = serviceArea
+        profile.servicePostalCode = servicePostalCode
+        profile.latitude = coordinates.latitude
+        profile.longitude = coordinates.longitude
+        profile.serviceRadiusKm = request.serviceRadiusKm.toDouble()
         profile.experienceYears = request.experienceYears
         profile.contactEmail = contactEmail
         profile.about = about
@@ -95,12 +115,16 @@ class ProfessionalProfileService(
     private fun validateNormalized(
         businessName: String,
         serviceArea: String,
+        servicePostalCode: String,
+        serviceRadiusKm: Int,
         experienceYears: Int,
         contactEmail: String,
         about: String
     ) {
         if (businessName.length !in 2..120 ||
             serviceArea.length !in 2..120 ||
+            servicePostalCode.length !in 2..20 ||
+            serviceRadiusKm !in 1..500 ||
             experienceYears !in 0..80 ||
             contactEmail.length !in 3..254 || !EmailPattern.matches(contactEmail) ||
             about.length !in 20..500
@@ -125,6 +149,8 @@ private fun ProfessionalProfile.toResponse(
     primaryService = primaryService.toOptionResponse(),
     offeredServices = offeredServices.map(MarketplaceService::toOptionResponse),
     serviceArea = serviceArea,
+    servicePostalCode = servicePostalCode,
+    serviceRadiusKm = serviceRadiusKm,
     experienceYears = experienceYears,
     contactEmail = contactEmail,
     about = about

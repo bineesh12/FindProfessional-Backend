@@ -1,6 +1,9 @@
 package com.findprofessional.marketplace.request
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
+import org.springframework.data.domain.Pageable
 import java.util.Optional
 import java.util.UUID
 
@@ -24,9 +27,51 @@ interface RequestAnswerRepository : JpaRepository<RequestAnswer, UUID> {
 
 interface CustomerRequestRepository : JpaRepository<CustomerRequest, UUID> {
     fun findBySessionId(sessionId: UUID): Optional<CustomerRequest>
+
+    @Query(
+        """
+        SELECT request FROM CustomerRequest request
+        WHERE request.status = :status
+          AND request.service.id IN :serviceIds
+          AND request.customerId <> :professionalUserId
+          AND NOT EXISTS (
+              SELECT decline.id FROM ProfessionalOpportunityDecline decline
+              WHERE decline.professionalUserId = :professionalUserId
+                AND decline.request = request
+          )
+        ORDER BY request.createdAt DESC
+        """
+    )
+    fun findProfessionalOpportunities(
+        @Param("status") status: CustomerRequestStatus,
+        @Param("serviceIds") serviceIds: Collection<UUID>,
+        @Param("professionalUserId") professionalUserId: UUID,
+        pageable: Pageable
+    ): List<CustomerRequest>
+
+    @Query(
+        """
+        SELECT COUNT(request) FROM CustomerRequest request
+        WHERE request.status = :status
+          AND request.service.id IN :serviceIds
+          AND request.customerId <> :professionalUserId
+          AND NOT EXISTS (
+              SELECT decline.id FROM ProfessionalOpportunityDecline decline
+              WHERE decline.professionalUserId = :professionalUserId
+                AND decline.request = request
+          )
+        """
+    )
+    fun countProfessionalOpportunities(
+        @Param("status") status: CustomerRequestStatus,
+        @Param("serviceIds") serviceIds: Collection<UUID>,
+        @Param("professionalUserId") professionalUserId: UUID
+    ): Long
 }
 
-interface RequestLocationRepository : JpaRepository<RequestLocation, UUID>
+interface RequestLocationRepository : JpaRepository<RequestLocation, UUID> {
+    fun findAllByRequestIdIn(requestIds: Collection<UUID>): List<RequestLocation>
+}
 
 interface PostcodeCoordinateRepository : JpaRepository<PostcodeCoordinate, UUID> {
     fun findByCountryCodeAndPostalCode(countryCode: String, postalCode: String): Optional<PostcodeCoordinate>

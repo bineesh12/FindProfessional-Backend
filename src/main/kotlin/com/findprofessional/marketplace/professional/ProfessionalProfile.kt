@@ -39,6 +39,18 @@ class ProfessionalProfile(
     @Column(nullable = false, length = 500)
     var about: String,
 
+    @Column(name = "service_postal_code", length = 20)
+    var servicePostalCode: String? = null,
+
+    @Column
+    var latitude: Double? = null,
+
+    @Column
+    var longitude: Double? = null,
+
+    @Column(name = "service_radius_km", nullable = false)
+    var serviceRadiusKm: Double = 50.0,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 

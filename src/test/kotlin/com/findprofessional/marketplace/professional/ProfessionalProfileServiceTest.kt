@@ -3,6 +3,8 @@ package com.findprofessional.marketplace.professional
 import com.findprofessional.marketplace.category.ServiceCategory
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
+import com.findprofessional.marketplace.request.RequestLocationService
+import com.findprofessional.marketplace.request.PostcodeCoordinate
 import com.findprofessional.marketplace.user.UserAccount
 import com.findprofessional.marketplace.user.UserRole
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.util.Optional
@@ -21,7 +24,20 @@ class ProfessionalProfileServiceTest {
     private val offerings = mock(ProfessionalServiceOfferingRepository::class.java)
     private val portfolio = mock(ProfessionalPortfolioService::class.java)
     private val authorization = mock(ProfessionalAuthorizationService::class.java)
-    private val service = ProfessionalProfileService(profiles, services, offerings, portfolio, authorization)
+    private val locations = mock(RequestLocationService::class.java)
+    private val service = ProfessionalProfileService(profiles, services, offerings, portfolio, authorization, locations)
+
+    init {
+        `when`(locations.resolvePostcode(anyString())).thenReturn(
+            PostcodeCoordinate(
+                countryCode = "se",
+                postalCode = "418 33",
+                latitude = 57.72,
+                longitude = 11.95,
+                source = "TEST"
+            )
+        )
+    }
 
     @Test
     fun `setup returns service options and no profile for first use`() {
@@ -62,6 +78,7 @@ class ProfessionalProfileServiceTest {
 
         assertEquals("Nordic Roofs", response.businessName)
         assertEquals("hello@example.com", response.contactEmail)
+        assertEquals("418 33", response.servicePostalCode)
         assertEquals(marketplaceService.id, response.primaryService.id)
         verify(authorization).requireProfessional(userId)
     }
@@ -113,12 +130,35 @@ class ProfessionalProfileServiceTest {
 
         assertEquals("VALIDATION_ERROR", error.code)
     }
+
+    @Test
+    fun `professional location postcode is required`() {
+        val invalid = profileRequest(UUID.randomUUID()).copy(servicePostalCode = "   ")
+
+        val error = assertThrows(ProfessionalProfileException::class.java) {
+            service.save(UUID.randomUUID(), invalid)
+        }
+
+        assertEquals("VALIDATION_ERROR", error.code)
+    }
+
+    @Test
+    fun `professional service area is required`() {
+        val invalid = profileRequest(UUID.randomUUID()).copy(serviceArea = "   ")
+
+        val error = assertThrows(ProfessionalProfileException::class.java) {
+            service.save(UUID.randomUUID(), invalid)
+        }
+
+        assertEquals("VALIDATION_ERROR", error.code)
+    }
 }
 
 private fun profileRequest(serviceId: UUID) = SaveProfessionalProfileRequest(
     businessName = " Nordic Roofs ",
     primaryServiceId = serviceId,
     serviceArea = " Gothenburg ",
+    servicePostalCode = " 418 33 ",
     experienceYears = 8,
     contactEmail = " HELLO@EXAMPLE.COM ",
     about = " Experienced roofers serving homes across the region. "

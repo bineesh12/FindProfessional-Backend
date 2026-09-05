@@ -21,6 +21,14 @@ data class SaveProfessionalProfileRequest(
     @field:Size(min = 2, max = 120)
     val serviceArea: String,
 
+    @field:NotBlank
+    @field:Size(min = 2, max = 20)
+    val servicePostalCode: String,
+
+    @field:Min(1)
+    @field:Max(500)
+    val serviceRadiusKm: Int = 50,
+
     @field:Min(0)
     @field:Max(80)
     val experienceYears: Int,
@@ -46,6 +54,8 @@ data class ProfessionalProfileResponse(
     val primaryService: ProfessionalServiceOptionResponse,
     val offeredServices: List<ProfessionalServiceOptionResponse>,
     val serviceArea: String,
+    val servicePostalCode: String? = null,
+    val serviceRadiusKm: Double = 50.0,
     val experienceYears: Int,
     val contactEmail: String,
     val about: String
