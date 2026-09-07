@@ -88,6 +88,28 @@ class ProfessionalOpportunityService(
     }
 
     @Transactional(readOnly = true)
+    fun getOffers(userId: UUID): ProfessionalOpportunitiesResponse {
+        authorization.requireProfessional(userId)
+        val professionalOffers = offers.findAllByProfessionalUserIdOrderByUpdatedAtDesc(userId)
+        if (professionalOffers.isEmpty()) return ProfessionalOpportunitiesResponse(0, emptyList())
+        val locationByRequestId = locations.findAllByRequestIdIn(professionalOffers.map { it.request.id })
+            .groupBy { it.request.id }
+            .mapValues { (_, requestLocations) -> requestLocations.preferredLocation() }
+        val profile = profiles.findById(userId).orElse(null)
+        return ProfessionalOpportunitiesResponse(
+            totalCount = professionalOffers.size.toLong(),
+            opportunities = professionalOffers.map { offer ->
+                val location = locationByRequestId[offer.request.id]
+                offer.request.toResponse(
+                    location = location?.toResponse(),
+                    distanceKm = profile.distanceTo(location),
+                    offer = offer
+                )
+            }
+        )
+    }
+
+    @Transactional(readOnly = true)
     fun getOpportunity(userId: UUID, requestId: UUID): ProfessionalOpportunityResponse {
         authorization.requireProfessional(userId)
         val request = requests.findById(requestId).orElseThrow {
