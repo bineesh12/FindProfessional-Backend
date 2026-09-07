@@ -138,12 +138,34 @@ class ProfessionalOpportunityServiceTest {
         )
         `when`(offers.findAllByProfessionalUserIdOrderByUpdatedAtDesc(professionalId)).thenReturn(listOf(offer))
         `when`(locations.findAllByRequestIdIn(listOf(request.id))).thenReturn(listOf(location))
+        `when`(profiles.findById(professionalId)).thenReturn(
+            Optional.of(
+                ProfessionalProfile(
+                    userId = professionalId,
+                    businessName = "Nordic Roofs",
+                    primaryService = marketplaceService,
+                    serviceArea = "Gothenburg",
+                    experienceYears = 8,
+                    contactEmail = "pro@example.com",
+                    about = "Experienced roofers.",
+                    servicePostalCode = "418 33",
+                    latitude = 57.7,
+                    longitude = 11.9,
+                    serviceRadiusKm = 50.0
+                )
+            )
+        )
 
         val response = service.getOffers(professionalId)
 
         assertEquals(1, response.totalCount)
         assertEquals(request.id, response.opportunities.single().id)
         assertEquals("Gothenburg", response.opportunities.single().location?.municipality)
+        assertEquals(0.0, response.opportunities.single().distanceKm)
+        assertEquals(
+            listOf(OpportunityMatchReason.SERVICE, OpportunityMatchReason.LOCATION),
+            response.opportunities.single().matchReasons
+        )
         assertEquals("EUR", response.opportunities.single().offer?.currency)
         verify(authorization).requireProfessional(professionalId)
     }

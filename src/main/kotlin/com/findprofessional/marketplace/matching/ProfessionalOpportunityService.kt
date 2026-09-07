@@ -95,12 +95,14 @@ class ProfessionalOpportunityService(
         val locationByRequestId = locations.findAllByRequestIdIn(professionalOffers.map { it.request.id })
             .groupBy { it.request.id }
             .mapValues { (_, requestLocations) -> requestLocations.preferredLocation() }
+        val profile = profiles.findById(userId).orElse(null)
         return ProfessionalOpportunitiesResponse(
             totalCount = professionalOffers.size.toLong(),
             opportunities = professionalOffers.map { offer ->
+                val location = locationByRequestId[offer.request.id]
                 offer.request.toResponse(
-                    location = locationByRequestId[offer.request.id]?.toResponse(),
-                    distanceKm = null,
+                    location = location?.toResponse(),
+                    distanceKm = profile.distanceTo(location),
                     offer = offer
                 )
             }
