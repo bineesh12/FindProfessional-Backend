@@ -61,11 +61,37 @@ class RequestAnswerValidatorTest {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        "'15000 SEK', '15000 SEK'",
+        "'15000,50 eur', '15000.5 EUR'",
+        "'1250.00 nok', '1250 NOK'"
+    )
+    fun `money answers are normalized with ISO currency`(input: String, expected: String) {
+        assertEquals(expected, normalizeAnswer(moneyQuestion(), input))
+    }
+
+    @ParameterizedTest
+    @CsvSource("'15000 INVALID'", "'amount SEK'", "'-10 SEK'", "'100 XYZ'")
+    fun `invalid money answers are rejected`(input: String) {
+        assertThrows(RequestException::class.java) {
+            normalizeAnswer(moneyQuestion(), input)
+        }
+    }
+
     private fun postcodeQuestion() = ServiceQuestion(
         service = service,
         key = "service_postcode",
         prompt = "What is the postcode?",
         type = QuestionType.POSTCODE,
+        displayOrder = 1
+    )
+
+    private fun moneyQuestion() = ServiceQuestion(
+        service = service,
+        key = "budget",
+        prompt = "What approximate budget are you considering?",
+        type = QuestionType.MONEY,
         displayOrder = 1
     )
 }

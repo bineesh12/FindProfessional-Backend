@@ -15,7 +15,7 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-enum class CustomerRequestStatus { PUBLISHED }
+enum class CustomerRequestStatus { PUBLISHED, COMPLETED }
 
 @Entity
 @Table(name = "customer_requests")
@@ -43,14 +43,14 @@ class CustomerRequest(
     val status: CustomerRequestStatus = CustomerRequestStatus.PUBLISHED,
 
     @Column(nullable = false)
-    val title: String,
+    var title: String,
 
     @Column(nullable = false)
-    val description: String,
+    var description: String,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    val updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now()
 )

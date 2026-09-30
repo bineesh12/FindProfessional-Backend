@@ -6,6 +6,7 @@ import java.util.UUID
 
 interface PortfolioProjectRepository : JpaRepository<PortfolioProject, UUID> {
     fun findAllByProfessionalUserIdOrderByDisplayOrderAscCreatedAtAsc(professionalUserId: UUID): List<PortfolioProject>
+    fun findAllByProfessionalUserIdIn(professionalUserIds: Collection<UUID>): List<PortfolioProject>
     fun findByIdAndProfessionalUserId(id: UUID, professionalUserId: UUID): Optional<PortfolioProject>
 }
 

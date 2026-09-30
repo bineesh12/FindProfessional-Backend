@@ -169,9 +169,10 @@ class RequestSessionServiceTest {
         )
         val question = ServiceQuestion(
             service = marketplaceService,
-            key = "preferred_start_date",
-            prompt = "When should construction begin?",
-            type = QuestionType.DATE,
+            key = "project_size",
+            prompt = "Approximately how large should the house be?",
+            type = QuestionType.NUMBER,
+            unit = "m²",
             displayOrder = 6
         )
         val session = RequestSession(
@@ -183,7 +184,7 @@ class RequestSessionServiceTest {
         val persistedAnswer = RequestAnswer(
             session = session,
             question = question,
-            value = "2027-01-01"
+            value = "120"
         )
         `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
         `when`(questions.allQuestions(marketplaceService.id)).thenReturn(listOf(question))
@@ -196,6 +197,7 @@ class RequestSessionServiceTest {
 
         assertEquals(RequestSessionStatus.COLLECTING_ANSWERS, response.status)
         assertEquals(question.key, response.currentStep.questionKey)
+        assertEquals("m²", response.currentStep.unit)
     }
 
     @Test

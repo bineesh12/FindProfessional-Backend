@@ -7,6 +7,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
+import java.util.Currency
 import java.util.Locale
 
 internal fun normalizeAnswer(question: ServiceQuestion, rawValue: String): String {
@@ -19,11 +20,25 @@ internal fun normalizeAnswer(question: ServiceQuestion, rawValue: String): Strin
         QuestionType.NUMBER ->
             value.takeIf { it.toBigDecimalOrNull()?.let { number -> number > BigDecimal.ZERO } == true }
         QuestionType.MONEY ->
-            value.takeIf { it.toBigDecimalOrNull()?.let { amount -> amount >= BigDecimal.ZERO } == true }
+            normalizeMoney(value)
         QuestionType.DATE -> parseRequestDate(value)?.toString()
         QuestionType.POSTCODE -> normalizeSwedishPostcode(value)
         QuestionType.BOOLEAN -> value.uppercase().takeIf { it in setOf("TRUE", "FALSE") }
     } ?: throw RequestException("The answer is invalid for this question", "INVALID_ANSWER")
+}
+
+private fun normalizeMoney(value: String): String? {
+    value.toBigDecimalOrNull()?.let { amount ->
+        return amount.takeIf { it >= BigDecimal.ZERO }?.stripTrailingZeros()?.toPlainString()
+    }
+    val match = MoneyPattern.matchEntire(value) ?: return null
+    val amount = match.groupValues[1].replace(',', '.').toBigDecimalOrNull()
+        ?.takeIf { it >= BigDecimal.ZERO }
+        ?: return null
+    val currency = match.groupValues[2].uppercase()
+        .takeIf { runCatching { Currency.getInstance(it) }.isSuccess }
+        ?: return null
+    return "${amount.stripTrailingZeros().toPlainString()} $currency"
 }
 
 private fun normalizeSwedishPostcode(value: String): String? {
@@ -62,3 +77,4 @@ private val monthFormats = listOf(
 )
 
 private val SwedishPostcodePattern = Regex("""^(\d{3})\s?(\d{2})$""")
+private val MoneyPattern = Regex("""^(\d+(?:[.,]\d{1,2})?)\s+([A-Za-z]{3})$""")

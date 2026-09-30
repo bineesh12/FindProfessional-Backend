@@ -4,6 +4,7 @@ import com.findprofessional.marketplace.ai.AiRequestDraftService
 import com.findprofessional.marketplace.ai.RequestDraftAnswer
 import com.findprofessional.marketplace.ai.RequestDraftInput
 import com.findprofessional.marketplace.question.QuestionEngine
+import com.findprofessional.marketplace.question.displayAnswer
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -85,7 +86,7 @@ class RequestSummaryService(
             RequestSummaryDetailResponse(
                 key = question.key,
                 label = question.prompt,
-                value = question.options.firstOrNull { it.value == answer.value }?.label ?: answer.value
+                value = question.displayAnswer(answer.value)
             )
         }
         ensureDraft(session, details)
