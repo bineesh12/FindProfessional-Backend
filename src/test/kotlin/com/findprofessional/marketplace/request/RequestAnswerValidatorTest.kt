@@ -46,16 +46,19 @@ class RequestAnswerValidatorTest {
 
     @ParameterizedTest
     @CsvSource(
-        "41833, '418 33'",
-        "'418 33', '418 33'"
+        "41833, 41833",
+        "'418 33', '418 33'",
+        "'sw1a 1aa', 'SW1A 1AA'",
+        "'10001', 10001",
+        "'H2X 1Y4', 'H2X 1Y4'"
     )
-    fun `swedish postcodes are normalized`(input: String, expected: String) {
+    fun `international postcodes are normalized`(input: String, expected: String) {
         assertEquals(expected, normalizeAnswer(postcodeQuestion(), input))
     }
 
     @ParameterizedTest
-    @CsvSource("4183", "418333", "'418 AB'", "'SE-418 33'")
-    fun `invalid swedish postcodes are rejected`(input: String) {
+    @CsvSource("12", "'A@ 123'", "'1234567890123'", "'-41833'")
+    fun `invalid postcodes are rejected`(input: String) {
         assertThrows(RequestException::class.java) {
             normalizeAnswer(postcodeQuestion(), input)
         }

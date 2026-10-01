@@ -33,7 +33,8 @@ class RequestSessionService(
     private val classifier: RequirementClassifier,
     private val aiRequirementService: AiRequirementService,
     private val aiValidator: AiResponseValidator,
-    private val authorization: CustomerAuthorizationService
+    private val authorization: CustomerAuthorizationService,
+    private val inputProperties: RequestInputProperties
 ) {
     @Transactional
     fun start(userId: UUID, request: StartRequestSessionRequest): RequestSessionResponse {
@@ -475,6 +476,11 @@ class RequestSessionService(
         helperText = helperText,
         answerType = type,
         unit = unit,
+        supportedCurrencies = if (type == QuestionType.MONEY) {
+            inputProperties.supportedCurrencies.map(String::uppercase).distinct()
+        } else {
+            emptyList()
+        },
         options = options.map { RequestOptionResponse(it.value, it.label, it.description) }
     )
 

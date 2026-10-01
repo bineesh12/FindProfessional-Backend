@@ -22,7 +22,7 @@ internal fun normalizeAnswer(question: ServiceQuestion, rawValue: String): Strin
         QuestionType.MONEY ->
             normalizeMoney(value)
         QuestionType.DATE -> parseRequestDate(value)?.toString()
-        QuestionType.POSTCODE -> normalizeSwedishPostcode(value)
+        QuestionType.POSTCODE -> normalizePostcode(value)
         QuestionType.BOOLEAN -> value.uppercase().takeIf { it in setOf("TRUE", "FALSE") }
     } ?: throw RequestException("The answer is invalid for this question", "INVALID_ANSWER")
 }
@@ -41,9 +41,11 @@ private fun normalizeMoney(value: String): String? {
     return "${amount.stripTrailingZeros().toPlainString()} $currency"
 }
 
-private fun normalizeSwedishPostcode(value: String): String? {
-    val match = SwedishPostcodePattern.matchEntire(value) ?: return null
-    return "${match.groupValues[1]} ${match.groupValues[2]}"
+private fun normalizePostcode(value: String): String? {
+    val normalized = value.uppercase().replace(WhitespacePattern, " ").trim()
+    return normalized.takeIf {
+        it.length in 3..12 && InternationalPostcodePattern.matches(it)
+    }
 }
 
 private fun parseRequestDate(value: String): LocalDate? {
@@ -76,5 +78,6 @@ private val monthFormats = listOf(
     format("MMMM uuuu")
 )
 
-private val SwedishPostcodePattern = Regex("""^(\d{3})\s?(\d{2})$""")
+private val InternationalPostcodePattern = Regex("""^[\p{L}\d][\p{L}\d -]*[\p{L}\d]$""")
+private val WhitespacePattern = Regex("""\s+""")
 private val MoneyPattern = Regex("""^(\d+(?:[.,]\d{1,2})?)\s+([A-Za-z]{3})$""")

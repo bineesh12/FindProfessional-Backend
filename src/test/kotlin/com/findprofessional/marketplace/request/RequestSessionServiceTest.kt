@@ -52,7 +52,8 @@ class RequestSessionServiceTest {
         RequirementClassifier(),
         ai,
         AiResponseValidator(),
-        authorization
+        authorization,
+        RequestInputProperties()
     )
 
     init {
@@ -228,6 +229,41 @@ class RequestSessionServiceTest {
 
         assertEquals("Other / Not listed", response.currentStep.options.single().label)
         assertEquals(generalHelp.id.toString(), response.currentStep.options.single().value)
+    }
+
+    @Test
+    fun `money question exposes configured currencies`() {
+        val userId = UUID.randomUUID()
+        val category = category()
+        val marketplaceService = MarketplaceService(
+            category = category,
+            code = "ROOFING",
+            name = "Roofing",
+            shortDescription = "Roof work",
+            iconKey = "roofing"
+        )
+        val question = ServiceQuestion(
+            service = marketplaceService,
+            key = "budget",
+            prompt = "What is your budget?",
+            type = QuestionType.MONEY,
+            displayOrder = 1
+        )
+        val session = RequestSession(
+            customerId = userId,
+            category = category,
+            service = marketplaceService,
+            currentQuestion = question,
+            status = RequestSessionStatus.COLLECTING_ANSWERS
+        )
+        `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
+        `when`(suggestions.findAllBySessionIdOrderByRankAsc(session.id)).thenReturn(emptyList())
+        `when`(answers.findAllBySessionId(session.id)).thenReturn(emptyList())
+        `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id)).thenReturn(emptyList())
+
+        val response = service.get(userId, session.id)
+
+        assertEquals(listOf("SEK", "EUR", "NOK", "DKK", "USD", "GBP"), response.currentStep.supportedCurrencies)
     }
 
     @Test
