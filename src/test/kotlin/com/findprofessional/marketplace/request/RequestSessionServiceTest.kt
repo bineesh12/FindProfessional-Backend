@@ -52,7 +52,8 @@ class RequestSessionServiceTest {
         RequirementClassifier(),
         ai,
         AiResponseValidator(),
-        authorization
+        authorization,
+        RequestInputProperties()
     )
 
     init {
@@ -169,9 +170,10 @@ class RequestSessionServiceTest {
         )
         val question = ServiceQuestion(
             service = marketplaceService,
-            key = "preferred_start_date",
-            prompt = "When should construction begin?",
-            type = QuestionType.DATE,
+            key = "project_size",
+            prompt = "Approximately how large should the house be?",
+            type = QuestionType.NUMBER,
+            unit = "m²",
             displayOrder = 6
         )
         val session = RequestSession(
@@ -183,7 +185,7 @@ class RequestSessionServiceTest {
         val persistedAnswer = RequestAnswer(
             session = session,
             question = question,
-            value = "2027-01-01"
+            value = "120"
         )
         `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
         `when`(questions.allQuestions(marketplaceService.id)).thenReturn(listOf(question))
@@ -196,6 +198,7 @@ class RequestSessionServiceTest {
 
         assertEquals(RequestSessionStatus.COLLECTING_ANSWERS, response.status)
         assertEquals(question.key, response.currentStep.questionKey)
+        assertEquals("m²", response.currentStep.unit)
     }
 
     @Test
@@ -226,6 +229,41 @@ class RequestSessionServiceTest {
 
         assertEquals("Other / Not listed", response.currentStep.options.single().label)
         assertEquals(generalHelp.id.toString(), response.currentStep.options.single().value)
+    }
+
+    @Test
+    fun `money question exposes configured currencies`() {
+        val userId = UUID.randomUUID()
+        val category = category()
+        val marketplaceService = MarketplaceService(
+            category = category,
+            code = "ROOFING",
+            name = "Roofing",
+            shortDescription = "Roof work",
+            iconKey = "roofing"
+        )
+        val question = ServiceQuestion(
+            service = marketplaceService,
+            key = "budget",
+            prompt = "What is your budget?",
+            type = QuestionType.MONEY,
+            displayOrder = 1
+        )
+        val session = RequestSession(
+            customerId = userId,
+            category = category,
+            service = marketplaceService,
+            currentQuestion = question,
+            status = RequestSessionStatus.COLLECTING_ANSWERS
+        )
+        `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
+        `when`(suggestions.findAllBySessionIdOrderByRankAsc(session.id)).thenReturn(emptyList())
+        `when`(answers.findAllBySessionId(session.id)).thenReturn(emptyList())
+        `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id)).thenReturn(emptyList())
+
+        val response = service.get(userId, session.id)
+
+        assertEquals(listOf("SEK", "EUR", "NOK", "DKK", "USD", "GBP"), response.currentStep.supportedCurrencies)
     }
 
     @Test

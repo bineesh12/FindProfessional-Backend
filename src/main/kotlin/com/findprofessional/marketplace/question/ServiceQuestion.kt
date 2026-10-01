@@ -39,6 +39,9 @@ class ServiceQuestion(
     @Column(name = "question_type", nullable = false)
     val type: QuestionType,
 
+    @Column(name = "unit", length = 32)
+    val unit: String? = null,
+
     @Column(nullable = false)
     val required: Boolean = true,
 

@@ -52,7 +52,9 @@ data class RequestStepResponse(
     val title: String,
     val helperText: String? = null,
     val answerType: QuestionType? = null,
-    val options: List<RequestOptionResponse> = emptyList()
+    val options: List<RequestOptionResponse> = emptyList(),
+    val unit: String? = null,
+    val supportedCurrencies: List<String> = emptyList()
 )
 
 data class RequestMatchResponse(

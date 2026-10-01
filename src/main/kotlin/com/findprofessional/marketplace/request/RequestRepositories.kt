@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Page
 import java.util.Optional
 import java.util.UUID
 
@@ -22,11 +23,22 @@ interface RequestMessageRepository : JpaRepository<RequestMessage, UUID> {
 
 interface RequestAnswerRepository : JpaRepository<RequestAnswer, UUID> {
     fun findAllBySessionId(sessionId: UUID): List<RequestAnswer>
+    fun findAllBySessionIdIn(sessionIds: Collection<UUID>): List<RequestAnswer>
     fun findBySessionIdAndQuestionId(sessionId: UUID, questionId: UUID): Optional<RequestAnswer>
 }
 
 interface CustomerRequestRepository : JpaRepository<CustomerRequest, UUID> {
     fun findBySessionId(sessionId: UUID): Optional<CustomerRequest>
+    fun findByIdAndCustomerId(id: UUID, customerId: UUID): Optional<CustomerRequest>
+    fun findAllByCustomerIdAndStatusInOrderByCreatedAtDesc(
+        customerId: UUID,
+        statuses: Collection<CustomerRequestStatus>,
+        pageable: Pageable
+    ): Page<CustomerRequest>
+    fun countByCustomerIdAndStatusIn(
+        customerId: UUID,
+        statuses: Collection<CustomerRequestStatus>
+    ): Long
 
     @Query(
         """

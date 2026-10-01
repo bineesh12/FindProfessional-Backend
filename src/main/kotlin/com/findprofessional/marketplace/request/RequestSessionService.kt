@@ -8,6 +8,7 @@ import com.findprofessional.marketplace.category.ServiceCategoryRepository
 import com.findprofessional.marketplace.question.QuestionEngine
 import com.findprofessional.marketplace.question.QuestionType
 import com.findprofessional.marketplace.question.ServiceQuestion
+import com.findprofessional.marketplace.question.displayAnswer
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
 import com.findprofessional.marketplace.service.ServiceAliasRepository
@@ -32,7 +33,8 @@ class RequestSessionService(
     private val classifier: RequirementClassifier,
     private val aiRequirementService: AiRequirementService,
     private val aiValidator: AiResponseValidator,
-    private val authorization: CustomerAuthorizationService
+    private val authorization: CustomerAuthorizationService,
+    private val inputProperties: RequestInputProperties
 ) {
     @Transactional
     fun start(userId: UUID, request: StartRequestSessionRequest): RequestSessionResponse {
@@ -306,7 +308,7 @@ class RequestSessionService(
     }
 
     private fun answerLabel(question: ServiceQuestion, value: String): String =
-        question.options.firstOrNull { it.value == value }?.label ?: value
+        question.displayAnswer(value)
 
     private fun saveAnswerTranscript(
         session: RequestSession,
@@ -473,6 +475,12 @@ class RequestSessionService(
         title = prompt,
         helperText = helperText,
         answerType = type,
+        unit = unit,
+        supportedCurrencies = if (type == QuestionType.MONEY) {
+            inputProperties.supportedCurrencies.map(String::uppercase).distinct()
+        } else {
+            emptyList()
+        },
         options = options.map { RequestOptionResponse(it.value, it.label, it.description) }
     )
 
