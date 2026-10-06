@@ -33,6 +33,24 @@ class UserService(
         return userRepository.save(user).toResponse()
     }
 
+    @Transactional(readOnly = true)
+    fun getPrivacyPreferences(userId: UUID): PrivacyPreferencesResponse =
+        requireUser(userId).toPrivacyPreferencesResponse()
+
+    @Transactional
+    fun updatePrivacyPreferences(
+        userId: UUID,
+        request: UpdatePrivacyPreferencesRequest
+    ): PrivacyPreferencesResponse {
+        val user = requireUser(userId)
+        if (user.analyticsConsentGranted != request.analyticsEnabled) {
+            user.analyticsConsentGranted = request.analyticsEnabled
+            user.analyticsConsentUpdatedAt = Instant.now(clock)
+            userRepository.save(user)
+        }
+        return user.toPrivacyPreferencesResponse()
+    }
+
     @Transactional
     fun selectRole(userId: UUID, request: SelectRoleRequest): UserResponse {
         val user = requireUser(userId)
@@ -47,3 +65,8 @@ class UserService(
             AuthException("User account was not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND)
         }
 }
+
+private fun UserAccount.toPrivacyPreferencesResponse() = PrivacyPreferencesResponse(
+    analyticsEnabled = analyticsConsentGranted,
+    updatedAt = analyticsConsentUpdatedAt
+)

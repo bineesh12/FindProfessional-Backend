@@ -3,6 +3,7 @@ package com.findprofessional.marketplace.user
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
+import java.time.Instant
 import java.util.UUID
 
 enum class RoleSelection {
@@ -26,6 +27,15 @@ data class UpdateUserProfileRequest(
     @field:NotBlank
     @field:Size(min = 2, max = 100)
     val displayName: String
+)
+
+data class UpdatePrivacyPreferencesRequest(
+    val analyticsEnabled: Boolean
+)
+
+data class PrivacyPreferencesResponse(
+    val analyticsEnabled: Boolean,
+    val updatedAt: Instant?
 )
 
 data class UserResponse(

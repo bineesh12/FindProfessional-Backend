@@ -34,6 +34,31 @@ class UserControllerTest {
     }
 
     @Test
+    fun `privacy preferences use authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val service = mock(UserService::class.java)
+        val response = PrivacyPreferencesResponse(analyticsEnabled = false, updatedAt = null)
+        `when`(service.getPrivacyPreferences(userId)).thenReturn(response)
+
+        val actual = UserController(service).privacyPreferences(jwt(userId))
+
+        assertEquals(response, actual)
+    }
+
+    @Test
+    fun `privacy update uses authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val service = mock(UserService::class.java)
+        val request = UpdatePrivacyPreferencesRequest(analyticsEnabled = true)
+        val response = PrivacyPreferencesResponse(analyticsEnabled = true, updatedAt = null)
+        `when`(service.updatePrivacyPreferences(userId, request)).thenReturn(response)
+
+        val actual = UserController(service).updatePrivacyPreferences(jwt(userId), request)
+
+        assertEquals(response, actual)
+    }
+
+    @Test
     fun `role selection uses authenticated jwt subject`() {
         val userId = UUID.randomUUID()
         val service = mock(UserService::class.java)

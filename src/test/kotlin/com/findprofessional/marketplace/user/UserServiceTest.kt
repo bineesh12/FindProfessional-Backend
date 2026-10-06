@@ -55,6 +55,33 @@ class UserServiceTest {
     }
 
     @Test
+    fun `privacy preferences default analytics consent to disabled`() {
+        val user = UserAccount(displayName = "User")
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+
+        val response = service.getPrivacyPreferences(user.id)
+
+        assertFalse(response.analyticsEnabled)
+        assertEquals(null, response.updatedAt)
+    }
+
+    @Test
+    fun `privacy update records analytics consent choice`() {
+        val user = UserAccount(displayName = "User")
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        `when`(users.save(user)).thenReturn(user)
+
+        val response = service.updatePrivacyPreferences(
+            user.id,
+            UpdatePrivacyPreferencesRequest(analyticsEnabled = true)
+        )
+
+        assertTrue(response.analyticsEnabled)
+        assertEquals(Instant.parse("2026-08-25T12:00:00Z"), response.updatedAt)
+        assertTrue(user.analyticsConsentGranted)
+    }
+
+    @Test
     fun `both selection replaces initial role and completes onboarding`() {
         val user = UserAccount(displayName = "User")
         `when`(users.findById(user.id)).thenReturn(Optional.of(user))

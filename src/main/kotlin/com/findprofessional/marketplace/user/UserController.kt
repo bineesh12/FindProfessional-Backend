@@ -27,6 +27,17 @@ class UserController(
         @Valid @RequestBody request: UpdateUserProfileRequest
     ): UserResponse = userService.updateProfile(UUID.fromString(jwt.subject), request)
 
+    @GetMapping("/privacy")
+    fun privacyPreferences(
+        @AuthenticationPrincipal jwt: Jwt
+    ): PrivacyPreferencesResponse = userService.getPrivacyPreferences(UUID.fromString(jwt.subject))
+
+    @PutMapping("/privacy")
+    fun updatePrivacyPreferences(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: UpdatePrivacyPreferencesRequest
+    ): PrivacyPreferencesResponse = userService.updatePrivacyPreferences(UUID.fromString(jwt.subject), request)
+
     @PutMapping("/role")
     fun selectRole(
         @AuthenticationPrincipal jwt: Jwt,

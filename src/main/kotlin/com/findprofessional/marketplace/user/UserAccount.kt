@@ -51,6 +51,12 @@ class UserAccount(
     @Column(name = "role_selected_at")
     var roleSelectedAt: Instant? = null,
 
+    @Column(name = "analytics_consent_granted", nullable = false)
+    var analyticsConsentGranted: Boolean = false,
+
+    @Column(name = "analytics_consent_updated_at")
+    var analyticsConsentUpdatedAt: Instant? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 
