@@ -41,6 +41,51 @@ Portfolio images use local file storage during development. If
 absolute writable directory or replace the local storage implementation with
 object storage.
 
+## Railway deployment
+
+Deploy this repository as one Railway service and add a Railway PostgreSQL
+service in the same project. The checked-in `Dockerfile` builds and runs the
+Spring Boot application on Railway's assigned `PORT`. Flyway applies pending
+migrations when the application starts.
+
+Configure these backend service variables using references to the PostgreSQL
+service where shown:
+
+```text
+DATABASE_URL=jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
+DATABASE_USERNAME=${{Postgres.PGUSER}}
+DATABASE_PASSWORD=${{Postgres.PGPASSWORD}}
+JWT_SECRET=<at-least-32-random-bytes>
+FIREBASE_PROJECT_ID=<firebase-project-id>
+FIREBASE_MESSAGING_ENABLED=true
+FIREBASE_SERVICE_ACCOUNT_JSON=<complete-service-account-json>
+GOOGLE_CLIENT_IDS=<comma-separated-allowed-google-oauth-client-ids>
+OPENAI_API_KEY=<openai-api-key>
+EXPOSE_PHONE_CODE=false
+PORTFOLIO_UPLOAD_DIRECTORY=/data/uploads
+```
+
+Paste the Firebase service account JSON into Railway as a secret variable; do
+not commit the file. `FIREBASE_SERVICE_ACCOUNT_JSON` is only needed for push
+delivery. Firebase login token verification only requires
+`FIREBASE_PROJECT_ID`.
+
+Create a persistent volume mounted at `/data` so profile and portfolio images
+survive deployments. Run one backend replica while local file storage is in
+use. Configure `/actuator/health` as the service health-check path, then create
+the custom domain `api.getarbio.com`. Railway provisions TLS after the DNS
+record displayed by the dashboard is added to the domain provider.
+
+After the public endpoint is healthy, build the mobile application with:
+
+```text
+BACKEND_BASE_URL=https://api.getarbio.com
+```
+
+Keep Railway's generated domain available until authentication, uploads,
+WebSocket messaging, and push notifications have been verified through the
+custom domain.
+
 ## Authentication endpoints
 
 ```text

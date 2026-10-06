@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.io.ByteArrayInputStream
 
 @Configuration
 class FirebaseNotificationConfiguration {
@@ -18,11 +19,16 @@ class FirebaseNotificationConfiguration {
     fun firebaseApp(properties: NotificationProperties): FirebaseApp {
         FirebaseApp.getApps().firstOrNull()?.let { return it }
         val options = FirebaseOptions.builder()
-            .setCredentials(GoogleCredentials.getApplicationDefault())
+            .setCredentials(firebaseCredentials(properties))
             .apply { properties.projectId.takeIf(String::isNotBlank)?.let(::setProjectId) }
             .build()
         return FirebaseApp.initializeApp(options)
     }
+
+    private fun firebaseCredentials(properties: NotificationProperties): GoogleCredentials =
+        properties.serviceAccountJson.takeIf(String::isNotBlank)
+            ?.let { json -> GoogleCredentials.fromStream(ByteArrayInputStream(json.toByteArray(Charsets.UTF_8))) }
+            ?: GoogleCredentials.getApplicationDefault()
 
     @Bean
     @ConditionalOnProperty(prefix = "app.notifications.firebase", name = ["enabled"], havingValue = "true")

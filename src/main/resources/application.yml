@@ -17,13 +17,23 @@ spring:
       max-request-size: 6MB
 
 server:
-  port: ${SERVER_PORT:8082}
+  port: ${PORT:${SERVER_PORT:8082}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 app:
   notifications:
     firebase:
       enabled: ${FIREBASE_MESSAGING_ENABLED:false}
       project-id: ${FIREBASE_PROJECT_ID:}
+      service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}
   request-input:
     supported-currencies: ${SUPPORTED_CURRENCIES:SEK,EUR,NOK,DKK,USD,GBP}
   portfolio:
