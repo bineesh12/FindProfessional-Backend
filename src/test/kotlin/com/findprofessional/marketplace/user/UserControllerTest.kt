@@ -9,27 +9,55 @@ import java.util.UUID
 
 class UserControllerTest {
     @Test
+    fun `current profile uses authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val service = mock(UserService::class.java)
+        val response = userResponse(userId)
+        `when`(service.getCurrentUser(userId)).thenReturn(response)
+
+        val actual = UserController(service).currentUser(jwt(userId))
+
+        assertEquals(response, actual)
+    }
+
+    @Test
+    fun `profile update uses authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val service = mock(UserService::class.java)
+        val request = UpdateUserProfileRequest("Updated professional")
+        val response = userResponse(userId).copy(displayName = request.displayName)
+        `when`(service.updateProfile(userId, request)).thenReturn(response)
+
+        val actual = UserController(service).updateProfile(jwt(userId), request)
+
+        assertEquals(response, actual)
+    }
+
+    @Test
     fun `role selection uses authenticated jwt subject`() {
         val userId = UUID.randomUUID()
         val service = mock(UserService::class.java)
         val request = SelectRoleRequest(RoleSelection.PROFESSIONAL)
-        val response = UserResponse(
-            id = userId,
-            email = null,
-            phoneNumber = "+46701234567",
-            displayName = "Professional",
-            roles = setOf(UserRole.PROFESSIONAL),
-            phoneVerified = true,
-            roleSelectionRequired = false
-        )
+        val response = userResponse(userId)
         `when`(service.selectRole(userId, request)).thenReturn(response)
-        val jwt = Jwt.withTokenValue("access-token")
-            .header("alg", "HS256")
-            .subject(userId.toString())
-            .build()
 
-        val actual = UserController(service).selectRole(jwt, request)
+        val actual = UserController(service).selectRole(jwt(userId), request)
 
         assertEquals(response, actual)
     }
+
+    private fun userResponse(userId: UUID) = UserResponse(
+        id = userId,
+        email = null,
+        phoneNumber = "+46701234567",
+        displayName = "Professional",
+        roles = setOf(UserRole.PROFESSIONAL),
+        phoneVerified = true,
+        roleSelectionRequired = false
+    )
+
+    private fun jwt(userId: UUID) = Jwt.withTokenValue("access-token")
+        .header("alg", "HS256")
+        .subject(userId.toString())
+        .build()
 }
