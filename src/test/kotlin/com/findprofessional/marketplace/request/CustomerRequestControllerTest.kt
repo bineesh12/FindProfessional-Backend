@@ -13,7 +13,7 @@ class CustomerRequestControllerTest {
     @Test
     fun `list uses authenticated customer subject`() {
         val service = mock(CustomerRequestQueryService::class.java)
-        val controller = CustomerRequestController(service)
+        val controller = controller(service)
         val userId = UUID.randomUUID()
         val jwt = Jwt("token", Instant.now(), Instant.now().plusSeconds(60), mapOf("alg" to "none"), mapOf("sub" to userId.toString()))
         val expected = CustomerRequestListResponse(
@@ -35,7 +35,7 @@ class CustomerRequestControllerTest {
     @Test
     fun `offers uses authenticated customer subject and request id`() {
         val service = mock(CustomerRequestQueryService::class.java)
-        val controller = CustomerRequestController(service)
+        val controller = controller(service)
         val userId = UUID.randomUUID()
         val requestId = UUID.randomUUID()
         val jwt = Jwt("token", Instant.now(), Instant.now().plusSeconds(60), mapOf("alg" to "none"), mapOf("sub" to userId.toString()))
@@ -62,7 +62,7 @@ class CustomerRequestControllerTest {
     @Test
     fun `offer details uses authenticated customer subject and both ids`() {
         val service = mock(CustomerRequestQueryService::class.java)
-        val controller = CustomerRequestController(service)
+        val controller = controller(service)
         val userId = UUID.randomUUID()
         val requestId = UUID.randomUUID()
         val offerId = UUID.randomUUID()
@@ -94,6 +94,7 @@ class CustomerRequestControllerTest {
             null,
             null,
             null,
+            com.findprofessional.marketplace.matching.ProfessionalOfferStatus.SUBMITTED,
             Instant.now()
         )
         val expected = CustomerOfferDetailsResponse(request, offer, emptyList())
@@ -108,7 +109,7 @@ class CustomerRequestControllerTest {
     @Test
     fun `update uses authenticated customer subject and request id`() {
         val service = mock(CustomerRequestQueryService::class.java)
-        val controller = CustomerRequestController(service)
+        val controller = controller(service)
         val userId = UUID.randomUUID()
         val requestId = UUID.randomUUID()
         val jwt = Jwt("token", Instant.now(), Instant.now().plusSeconds(60), mapOf("alg" to "none"), mapOf("sub" to userId.toString()))
@@ -129,4 +130,53 @@ class CustomerRequestControllerTest {
         assertSame(expected, response)
         verify(service).update(userId, requestId, input)
     }
+
+    @Test
+    fun `accept offer uses authenticated customer subject and both ids`() {
+        val service = mock(CustomerRequestQueryService::class.java)
+        val decisions = mock(CustomerOfferDecisionService::class.java)
+        val controller = controller(service, decisions)
+        val userId = UUID.randomUUID()
+        val requestId = UUID.randomUUID()
+        val offerId = UUID.randomUUID()
+        val jwt = Jwt("token", Instant.now(), Instant.now().plusSeconds(60), mapOf("alg" to "none"), mapOf("sub" to userId.toString()))
+        val expected = CustomerOfferDecisionResponse(
+            requestId,
+            offerId,
+            com.findprofessional.marketplace.matching.ProfessionalOfferStatus.ACCEPTED,
+            CustomerRequestStatus.HIRED
+        )
+        `when`(decisions.accept(userId, requestId, offerId)).thenReturn(expected)
+
+        val response = controller.acceptOffer(jwt, requestId, offerId)
+
+        assertSame(expected, response)
+        verify(decisions).accept(userId, requestId, offerId)
+    }
+
+    @Test
+    fun `delete uses authenticated customer subject and request id`() {
+        val service = mock(CustomerRequestQueryService::class.java)
+        val cancellations = mock(CustomerRequestCancellationService::class.java)
+        val controller = controller(service, cancellations = cancellations)
+        val userId = UUID.randomUUID()
+        val requestId = UUID.randomUUID()
+        val jwt = Jwt(
+            "token",
+            Instant.now(),
+            Instant.now().plusSeconds(60),
+            mapOf("alg" to "none"),
+            mapOf("sub" to userId.toString())
+        )
+
+        controller.delete(jwt, requestId)
+
+        verify(cancellations).cancel(userId, requestId)
+    }
+
+    private fun controller(
+        service: CustomerRequestQueryService,
+        decisions: CustomerOfferDecisionService = mock(CustomerOfferDecisionService::class.java),
+        cancellations: CustomerRequestCancellationService = mock(CustomerRequestCancellationService::class.java)
+    ) = CustomerRequestController(service, decisions, cancellations)
 }

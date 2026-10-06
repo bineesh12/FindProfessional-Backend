@@ -67,9 +67,21 @@ class RequestSessionService(
         return response(session)
     }
 
-    @Transactional(readOnly = true)
-    fun get(userId: UUID, sessionId: UUID): RequestSessionResponse =
-        response(ownedSession(userId, sessionId))
+    @Transactional
+    fun get(userId: UUID, sessionId: UUID): RequestSessionResponse {
+        val session = ownedSession(userId, sessionId)
+        val currentQuestion = session.currentQuestion
+        if (session.status == RequestSessionStatus.COLLECTING_ANSWERS &&
+            currentQuestion != null &&
+            (answers.findBySessionIdAndQuestionId(session.id, currentQuestion.id).isPresent ||
+                questionEngine.allQuestions(checkNotNull(session.service).id).none { it.id == currentQuestion.id })
+        ) {
+            advance(session)
+            session.touch()
+            sessions.save(session)
+        }
+        return response(session)
+    }
 
     @Transactional
     fun submitDescription(

@@ -4,6 +4,10 @@ import com.findprofessional.marketplace.matching.ProfessionalOffer
 import com.findprofessional.marketplace.matching.ProfessionalOfferAttachmentRepository
 import com.findprofessional.marketplace.matching.ProfessionalOfferRepository
 import com.findprofessional.marketplace.matching.ProfessionalOfferStatus
+import com.findprofessional.marketplace.matching.OpportunityNotificationMatcher
+import com.findprofessional.marketplace.notification.CreateNotification
+import com.findprofessional.marketplace.notification.MarketplaceNotificationType
+import com.findprofessional.marketplace.notification.NotificationService
 import com.findprofessional.marketplace.question.QuestionType
 import com.findprofessional.marketplace.professional.PortfolioImageRepository
 import com.findprofessional.marketplace.professional.PortfolioProjectRepository
@@ -28,7 +32,9 @@ class CustomerRequestQueryService(
     private val portfolioProjects: PortfolioProjectRepository,
     private val portfolioImages: PortfolioImageRepository,
     private val offerAttachments: ProfessionalOfferAttachmentRepository,
-    private val storageProperties: PortfolioStorageProperties
+    private val storageProperties: PortfolioStorageProperties,
+    private val opportunityMatcher: OpportunityNotificationMatcher,
+    private val notifications: NotificationService
 ) {
     @Transactional(readOnly = true)
     fun list(
@@ -73,9 +79,9 @@ class CustomerRequestQueryService(
             .mapValues { (_, values) -> values.preferredLocation() }
         val answerBySessionId = answers.findAllBySessionIdIn(pageRequests.map { it.session.id })
             .groupBy { it.session.id }
-        val offerCountByRequestId = offers.countByRequestIdsAndStatus(
+        val offerCountByRequestId = offers.countByRequestIdsAndStatusIn(
             requestIds,
-            ProfessionalOfferStatus.SUBMITTED
+            VisibleOfferListStatuses
         ).associate { it.requestId to it.offerCount }
 
         return CustomerRequestListResponse(
@@ -103,9 +109,13 @@ class CustomerRequestQueryService(
     ): CustomerRequestOffersResponse {
         authorization.requireCustomer(userId)
         val request = requireOwnedRequest(userId, requestId)
-        val submittedOffers = offers.findAllByRequestIdAndStatusOrderByUpdatedAtDesc(
+        val submittedOffers = offers.findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
             requestId,
-            ProfessionalOfferStatus.SUBMITTED
+            if (request.status == CustomerRequestStatus.HIRED) {
+                setOf(ProfessionalOfferStatus.ACCEPTED)
+            } else {
+                setOf(ProfessionalOfferStatus.SUBMITTED)
+            }
         )
         val professionalById = professionalSummaries(submittedOffers.map { it.professionalUserId })
         return CustomerRequestOffersResponse(
@@ -120,7 +130,7 @@ class CustomerRequestQueryService(
     fun offerDetails(userId: UUID, requestId: UUID, offerId: UUID): CustomerOfferDetailsResponse {
         authorization.requireCustomer(userId)
         val request = requireOwnedRequest(userId, requestId)
-        val offer = offers.findByIdAndRequestIdAndStatus(offerId, requestId, ProfessionalOfferStatus.SUBMITTED)
+        val offer = offers.findByIdAndRequestIdAndStatusIn(offerId, requestId, VisibleCustomerOfferStatuses)
             .orElseThrow {
                 RequestException(
                     "Offer was not found",
@@ -133,7 +143,7 @@ class CustomerRequestQueryService(
         )
         return CustomerOfferDetailsResponse(
             request = request.toOfferRequest(
-                offers.countByRequestIdAndStatus(requestId, ProfessionalOfferStatus.SUBMITTED)
+                offers.countByRequestIdAndStatusIn(requestId, VisibleOfferListStatuses)
             ),
             offer = offer.toCustomerOffer(professional),
             attachments = offerAttachments.findAllByOfferIdOrderByCreatedAtAsc(offer.id).map { attachment ->
@@ -163,7 +173,7 @@ class CustomerRequestQueryService(
                 HttpStatus.CONFLICT
             )
         }
-        if (offers.countByRequestIdAndStatus(requestId, ProfessionalOfferStatus.SUBMITTED) > 0) {
+        if (offers.countByRequestIdAndStatusIn(requestId, VisibleOfferListStatuses) > 0) {
             throw RequestException(
                 "Requests with submitted offers cannot be edited",
                 "REQUEST_HAS_OFFERS",
@@ -187,6 +197,17 @@ class CustomerRequestQueryService(
         request.title = title
         request.description = description
         request.updatedAt = Instant.now()
+        opportunityMatcher.matchingProfessionalIds(request).forEach { professionalId ->
+            notifications.create(
+                CreateNotification(
+                    userId = professionalId,
+                    type = MarketplaceNotificationType.REQUEST_UPDATED,
+                    title = "Opportunity updated",
+                    body = request.title,
+                    requestId = request.id
+                )
+            )
+        }
         return CustomerRequestUpdateResponse(
             id = request.id,
             title = request.title,
@@ -212,7 +233,8 @@ class CustomerRequestQueryService(
             ?.value
             ?.toBudget(),
         submittedOfferCount = offerCount,
-        canEdit = offerCount == 0L,
+        canEdit = status == CustomerRequestStatus.PUBLISHED && offerCount == 0L,
+        canDelete = status == CustomerRequestStatus.PUBLISHED && offerCount == 0L,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -301,6 +323,7 @@ class CustomerRequestQueryService(
             availableStartDate = availableStartDate,
             scopeIncluded = scopeIncluded,
             scopeExcluded = scopeExcluded,
+            status = status,
             submittedAt = updatedAt
         )
 
@@ -324,14 +347,27 @@ class CustomerRequestQueryService(
         const val MinimumDescriptionLength = 20
         const val MaximumDescriptionLength = 4000
         val MoneyValuePattern = Regex("""^(\d+(?:\.\d+)?)\s+([A-Z]{3})$""")
-        val ActiveStatuses = setOf(CustomerRequestStatus.PUBLISHED)
+        val ActiveStatuses = setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
         val CompletedStatuses = setOf(CustomerRequestStatus.COMPLETED)
+        val VisibleCustomerOfferStatuses = setOf(
+            ProfessionalOfferStatus.SUBMITTED,
+            ProfessionalOfferStatus.ACCEPTED,
+            ProfessionalOfferStatus.DECLINED
+        )
+        val VisibleOfferListStatuses = setOf(
+            ProfessionalOfferStatus.SUBMITTED,
+            ProfessionalOfferStatus.ACCEPTED
+        )
     }
 }
 
 private val CustomerRequestFilter.statuses: Set<CustomerRequestStatus>
     get() = when (this) {
-        CustomerRequestFilter.ALL -> CustomerRequestStatus.entries.toSet()
-        CustomerRequestFilter.ACTIVE -> setOf(CustomerRequestStatus.PUBLISHED)
+        CustomerRequestFilter.ALL -> setOf(
+            CustomerRequestStatus.PUBLISHED,
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.COMPLETED
+        )
+        CustomerRequestFilter.ACTIVE -> setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
         CustomerRequestFilter.COMPLETED -> setOf(CustomerRequestStatus.COMPLETED)
     }

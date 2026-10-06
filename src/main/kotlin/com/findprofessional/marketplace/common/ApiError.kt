@@ -4,6 +4,8 @@ import com.findprofessional.marketplace.auth.AuthException
 import com.findprofessional.marketplace.request.RequestException
 import com.findprofessional.marketplace.professional.ProfessionalProfileException
 import com.findprofessional.marketplace.matching.ProfessionalOpportunityException
+import com.findprofessional.marketplace.conversation.ConversationException
+import com.findprofessional.marketplace.notification.NotificationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -17,6 +19,16 @@ data class ApiError(
 
 @RestControllerAdvice
 class ApiExceptionHandler {
+    @ExceptionHandler(NotificationException::class)
+    fun handleNotificationException(exception: NotificationException): ResponseEntity<ApiError> =
+        ResponseEntity.status(exception.status)
+            .body(ApiError(code = exception.code, message = exception.message))
+
+    @ExceptionHandler(ConversationException::class)
+    fun handleConversationException(exception: ConversationException): ResponseEntity<ApiError> =
+        ResponseEntity.status(exception.status)
+            .body(ApiError(code = exception.code, message = exception.message ?: "Conversation operation failed"))
+
     @ExceptionHandler(AuthException::class)
     fun handleAuthException(exception: AuthException): ResponseEntity<ApiError> =
         ResponseEntity.status(exception.status)

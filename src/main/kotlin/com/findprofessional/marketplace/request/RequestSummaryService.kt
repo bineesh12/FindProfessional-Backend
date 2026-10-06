@@ -5,6 +5,10 @@ import com.findprofessional.marketplace.ai.RequestDraftAnswer
 import com.findprofessional.marketplace.ai.RequestDraftInput
 import com.findprofessional.marketplace.question.QuestionEngine
 import com.findprofessional.marketplace.question.displayAnswer
+import com.findprofessional.marketplace.matching.OpportunityNotificationMatcher
+import com.findprofessional.marketplace.notification.CreateNotification
+import com.findprofessional.marketplace.notification.MarketplaceNotificationType
+import com.findprofessional.marketplace.notification.NotificationService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,7 +22,9 @@ class RequestSummaryService(
     private val sessions: RequestSessionRepository,
     private val questionEngine: QuestionEngine,
     private val aiDraftService: AiRequestDraftService,
-    private val locationService: RequestLocationService
+    private val locationService: RequestLocationService,
+    private val opportunityMatcher: OpportunityNotificationMatcher,
+    private val notifications: NotificationService
 ) {
     @Transactional
     fun summary(userId: UUID, sessionId: UUID): RequestSummaryResponse {
@@ -71,6 +77,17 @@ class RequestSummaryService(
         )
         val answerMap = answers.findAllBySessionId(session.id).associate { it.question.key to it.value }
         locationService.saveResolvedLocations(request, answerMap)
+        opportunityMatcher.matchingProfessionalIds(request).forEach { professionalId ->
+            notifications.create(
+                CreateNotification(
+                    userId = professionalId,
+                    type = MarketplaceNotificationType.NEW_OPPORTUNITY,
+                    title = "New opportunity",
+                    body = "A new ${service.name} request matches your services",
+                    requestId = request.id
+                )
+            )
+        }
         session.status = RequestSessionStatus.CONFIRMED
         session.currentQuestion = null
         session.touch()
@@ -106,10 +123,7 @@ class RequestSummaryService(
     ) {
         if (!session.draftTitle.isNullOrBlank() && !session.draftDescription.isNullOrBlank()) return
         val service = checkNotNull(session.service)
-        val fallbackDescription = buildList {
-            session.initialDescription?.takeIf(String::isNotBlank)?.let(::add)
-            details.forEach { add("${it.label}: ${it.value}") }
-        }.joinToString(separator = "\n")
+        val fallbackDescription = deterministicDescription(session, details)
         val generated = runCatching {
             aiDraftService.generateDraft(
                 RequestDraftInput(
@@ -128,6 +142,27 @@ class RequestSummaryService(
         session.draftDescription = generated?.description?.trim() ?: fallbackDescription
         session.touch()
         sessions.save(session)
+    }
+
+    private fun deterministicDescription(
+        session: RequestSession,
+        details: List<RequestSummaryDetailResponse>
+    ): String = buildString {
+        session.initialDescription
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?.let(::append)
+        if (details.isNotEmpty()) {
+            if (isNotEmpty()) append("\n\n")
+            append("Project details:\n")
+            details.forEachIndexed { index, detail ->
+                append("- ")
+                append(detail.label.trim().removeSuffix("?"))
+                append(": ")
+                append(detail.value.trim())
+                if (index != details.lastIndex) append('\n')
+            }
+        }
     }
 
     private companion object {

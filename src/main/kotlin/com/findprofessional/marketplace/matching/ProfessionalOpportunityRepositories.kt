@@ -16,12 +16,17 @@ interface ProfessionalOfferRepository : JpaRepository<ProfessionalOffer, UUID> {
         requestId: UUID,
         status: ProfessionalOfferStatus
     ): List<ProfessionalOffer>
-    fun findByIdAndRequestIdAndStatus(
+    fun findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
+        requestId: UUID,
+        statuses: Collection<ProfessionalOfferStatus>
+    ): List<ProfessionalOffer>
+    fun findByIdAndRequestIdAndStatusIn(
         id: UUID,
         requestId: UUID,
-        status: ProfessionalOfferStatus
+        statuses: Collection<ProfessionalOfferStatus>
     ): Optional<ProfessionalOffer>
     fun countByRequestIdAndStatus(requestId: UUID, status: ProfessionalOfferStatus): Long
+    fun countByRequestIdAndStatusIn(requestId: UUID, statuses: Collection<ProfessionalOfferStatus>): Long
     fun findByProfessionalUserIdAndRequestId(professionalUserId: UUID, requestId: UUID): Optional<ProfessionalOffer>
     fun findAllByProfessionalUserIdAndRequestIdIn(
         professionalUserId: UUID,
@@ -32,13 +37,13 @@ interface ProfessionalOfferRepository : JpaRepository<ProfessionalOffer, UUID> {
         """
         SELECT offer.request.id AS requestId, COUNT(offer.id) AS offerCount
         FROM ProfessionalOffer offer
-        WHERE offer.request.id IN :requestIds AND offer.status = :status
+        WHERE offer.request.id IN :requestIds AND offer.status IN :statuses
         GROUP BY offer.request.id
         """
     )
-    fun countByRequestIdsAndStatus(
+    fun countByRequestIdsAndStatusIn(
         @Param("requestIds") requestIds: Collection<UUID>,
-        @Param("status") status: ProfessionalOfferStatus
+        @Param("statuses") statuses: Collection<ProfessionalOfferStatus>
     ): List<RequestOfferCount>
 }
 

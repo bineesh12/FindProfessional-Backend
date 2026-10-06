@@ -7,6 +7,10 @@ import com.findprofessional.marketplace.matching.ProfessionalOfferAttachment
 import com.findprofessional.marketplace.matching.ProfessionalOfferStatus
 import com.findprofessional.marketplace.matching.ProfessionalOfferAttachmentRepository
 import com.findprofessional.marketplace.matching.RequestOfferCount
+import com.findprofessional.marketplace.matching.OpportunityNotificationMatcher
+import com.findprofessional.marketplace.notification.CreateNotification
+import com.findprofessional.marketplace.notification.MarketplaceNotificationType
+import com.findprofessional.marketplace.notification.NotificationService
 import com.findprofessional.marketplace.question.QuestionType
 import com.findprofessional.marketplace.question.ServiceQuestion
 import com.findprofessional.marketplace.professional.ProfessionalProfile
@@ -40,6 +44,8 @@ class CustomerRequestQueryServiceTest {
     private val portfolioProjects = mock(PortfolioProjectRepository::class.java)
     private val portfolioImages = mock(PortfolioImageRepository::class.java)
     private val offerAttachments = mock(ProfessionalOfferAttachmentRepository::class.java)
+    private val opportunityMatcher = mock(OpportunityNotificationMatcher::class.java)
+    private val notifications = mock(NotificationService::class.java)
     private val service = CustomerRequestQueryService(
         authorization,
         requests,
@@ -50,7 +56,9 @@ class CustomerRequestQueryServiceTest {
         portfolioProjects,
         portfolioImages,
         offerAttachments,
-        PortfolioStorageProperties()
+        PortfolioStorageProperties(),
+        opportunityMatcher,
+        notifications
     )
 
     @Test
@@ -58,20 +66,34 @@ class CustomerRequestQueryServiceTest {
         val fixture = fixture()
         val pageable = PageRequest.of(0, 20)
         val offerCount = mock(RequestOfferCount::class.java)
-        `when`(requests.countByCustomerIdAndStatusIn(fixture.userId, setOf(CustomerRequestStatus.PUBLISHED)))
+        `when`(
+            requests.countByCustomerIdAndStatusIn(
+                fixture.userId,
+                setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+            )
+        )
             .thenReturn(1)
         `when`(requests.countByCustomerIdAndStatusIn(fixture.userId, setOf(CustomerRequestStatus.COMPLETED)))
             .thenReturn(0)
         `when`(
             requests.findAllByCustomerIdAndStatusInOrderByCreatedAtDesc(
                 fixture.userId,
-                CustomerRequestStatus.entries.toSet(),
+                setOf(
+                    CustomerRequestStatus.PUBLISHED,
+                    CustomerRequestStatus.HIRED,
+                    CustomerRequestStatus.COMPLETED
+                ),
                 pageable
             )
         ).thenReturn(PageImpl(listOf(fixture.request), pageable, 1))
         `when`(locations.findAllByRequestIdIn(listOf(fixture.request.id))).thenReturn(listOf(fixture.location))
         `when`(answers.findAllBySessionIdIn(listOf(fixture.session.id))).thenReturn(listOf(fixture.budgetAnswer))
-        `when`(offers.countByRequestIdsAndStatus(listOf(fixture.request.id), ProfessionalOfferStatus.SUBMITTED))
+        `when`(
+            offers.countByRequestIdsAndStatusIn(
+                listOf(fixture.request.id),
+                setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+            )
+        )
             .thenReturn(listOf(offerCount))
         `when`(offerCount.requestId).thenReturn(fixture.request.id)
         `when`(offerCount.offerCount).thenReturn(3)
@@ -88,6 +110,7 @@ class CustomerRequestQueryServiceTest {
             assertEquals("SEK", budget?.currency)
             assertEquals(3, submittedOfferCount)
             assertFalse(canEdit)
+            assertFalse(canDelete)
         }
         verify(authorization).requireCustomer(fixture.userId)
     }
@@ -96,7 +119,12 @@ class CustomerRequestQueryServiceTest {
     fun `completed filter queries only completed requests`() {
         val userId = UUID.randomUUID()
         val pageable = PageRequest.of(0, 20)
-        `when`(requests.countByCustomerIdAndStatusIn(userId, setOf(CustomerRequestStatus.PUBLISHED))).thenReturn(2)
+        `when`(
+            requests.countByCustomerIdAndStatusIn(
+                userId,
+                setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+            )
+        ).thenReturn(2)
         `when`(requests.countByCustomerIdAndStatusIn(userId, setOf(CustomerRequestStatus.COMPLETED))).thenReturn(0)
         `when`(
             requests.findAllByCustomerIdAndStatusInOrderByCreatedAtDesc(
@@ -126,8 +154,15 @@ class CustomerRequestQueryServiceTest {
         val fixture = fixture()
         `when`(requests.findByIdAndCustomerId(fixture.request.id, fixture.userId))
             .thenReturn(Optional.of(fixture.request))
-        `when`(offers.countByRequestIdAndStatus(fixture.request.id, ProfessionalOfferStatus.SUBMITTED))
+        `when`(
+            offers.countByRequestIdAndStatusIn(
+                fixture.request.id,
+                setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+            )
+        )
             .thenReturn(0)
+        val professionalId = UUID.randomUUID()
+        `when`(opportunityMatcher.matchingProfessionalIds(fixture.request)).thenReturn(listOf(professionalId))
 
         val response = service.update(
             fixture.userId,
@@ -142,6 +177,15 @@ class CustomerRequestQueryServiceTest {
         assertEquals("Replace the cabinets, flooring, and kitchen lighting.", response.description)
         assertEquals(response.title, fixture.request.title)
         verify(authorization).requireCustomer(fixture.userId)
+        verify(notifications).create(
+            CreateNotification(
+                userId = professionalId,
+                type = MarketplaceNotificationType.REQUEST_UPDATED,
+                title = "Opportunity updated",
+                body = fixture.request.title,
+                requestId = fixture.request.id
+            )
+        )
     }
 
     @Test
@@ -149,7 +193,12 @@ class CustomerRequestQueryServiceTest {
         val fixture = fixture()
         `when`(requests.findByIdAndCustomerId(fixture.request.id, fixture.userId))
             .thenReturn(Optional.of(fixture.request))
-        `when`(offers.countByRequestIdAndStatus(fixture.request.id, ProfessionalOfferStatus.SUBMITTED))
+        `when`(
+            offers.countByRequestIdAndStatusIn(
+                fixture.request.id,
+                setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+            )
+        )
             .thenReturn(1)
 
         val error = assertThrows(RequestException::class.java) {
@@ -190,9 +239,9 @@ class CustomerRequestQueryServiceTest {
         `when`(requests.findByIdAndCustomerId(fixture.request.id, fixture.userId))
             .thenReturn(Optional.of(fixture.request))
         `when`(
-            offers.findAllByRequestIdAndStatusOrderByUpdatedAtDesc(
+            offers.findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
                 fixture.request.id,
-                ProfessionalOfferStatus.SUBMITTED
+                setOf(ProfessionalOfferStatus.SUBMITTED)
             )
         ).thenReturn(listOf(offer))
         `when`(profiles.findAllById(listOf(professionalId))).thenReturn(listOf(profile))
@@ -218,9 +267,9 @@ class CustomerRequestQueryServiceTest {
         val profile = professionalProfile(professionalId, fixture.request.service)
         stubOfferContext(fixture, professionalId, profile)
         `when`(
-            offers.findAllByRequestIdAndStatusOrderByUpdatedAtDesc(
+            offers.findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
                 fixture.request.id,
-                ProfessionalOfferStatus.SUBMITTED
+                setOf(ProfessionalOfferStatus.SUBMITTED)
             )
         ).thenReturn(listOf(higher, lower))
 
@@ -244,13 +293,22 @@ class CustomerRequestQueryServiceTest {
         )
         stubOfferContext(fixture, professionalId, profile)
         `when`(
-            offers.findByIdAndRequestIdAndStatus(
+            offers.findByIdAndRequestIdAndStatusIn(
                 offer.id,
                 fixture.request.id,
-                ProfessionalOfferStatus.SUBMITTED
+                setOf(
+                    ProfessionalOfferStatus.SUBMITTED,
+                    ProfessionalOfferStatus.ACCEPTED,
+                    ProfessionalOfferStatus.DECLINED
+                )
             )
         ).thenReturn(Optional.of(offer))
-        `when`(offers.countByRequestIdAndStatus(fixture.request.id, ProfessionalOfferStatus.SUBMITTED))
+        `when`(
+            offers.countByRequestIdAndStatusIn(
+                fixture.request.id,
+                setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+            )
+        )
             .thenReturn(1)
         `when`(offerAttachments.findAllByOfferIdOrderByCreatedAtAsc(offer.id)).thenReturn(listOf(attachment))
 

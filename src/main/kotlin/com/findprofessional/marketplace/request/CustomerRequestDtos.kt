@@ -1,5 +1,6 @@
 package com.findprofessional.marketplace.request
 
+import com.findprofessional.marketplace.matching.ProfessionalOfferStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -36,6 +37,7 @@ data class CustomerRequestListItemResponse(
     val budget: CustomerRequestBudgetResponse?,
     val submittedOfferCount: Long,
     val canEdit: Boolean,
+    val canDelete: Boolean,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -71,6 +73,7 @@ data class CustomerOfferListItemResponse(
     val availableStartDate: LocalDate?,
     val scopeIncluded: String?,
     val scopeExcluded: String?,
+    val status: ProfessionalOfferStatus,
     val submittedAt: Instant
 )
 
@@ -110,4 +113,11 @@ data class CustomerOfferDetailsResponse(
     val request: CustomerOfferRequestResponse,
     val offer: CustomerOfferListItemResponse,
     val attachments: List<CustomerOfferAttachmentResponse>
+)
+
+data class CustomerOfferDecisionResponse(
+    val requestId: UUID,
+    val offerId: UUID,
+    val status: ProfessionalOfferStatus,
+    val requestStatus: CustomerRequestStatus
 )

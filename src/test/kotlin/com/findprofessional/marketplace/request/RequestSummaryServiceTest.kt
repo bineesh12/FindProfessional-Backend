@@ -1,14 +1,16 @@
 package com.findprofessional.marketplace.request
 
 import com.findprofessional.marketplace.ai.AiRequestDraftService
+import com.findprofessional.marketplace.ai.GeneratedRequestDraft
 import com.findprofessional.marketplace.auth.anyValue
 import com.findprofessional.marketplace.category.category
 import com.findprofessional.marketplace.question.QuestionEngine
 import com.findprofessional.marketplace.question.QuestionType
 import com.findprofessional.marketplace.question.ServiceQuestion
 import com.findprofessional.marketplace.service.MarketplaceService
+import com.findprofessional.marketplace.matching.OpportunityNotificationMatcher
+import com.findprofessional.marketplace.notification.NotificationService
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
@@ -24,6 +26,8 @@ class RequestSummaryServiceTest {
     private val questions = mock(QuestionEngine::class.java)
     private val aiDrafts = mock(AiRequestDraftService::class.java)
     private val locationService = mock(RequestLocationService::class.java)
+    private val opportunityMatcher = mock(OpportunityNotificationMatcher::class.java)
+    private val notifications = mock(NotificationService::class.java)
     private val summaries = RequestSummaryService(
         sessionService,
         answers,
@@ -31,11 +35,14 @@ class RequestSummaryServiceTest {
         sessions,
         questions,
         aiDrafts,
-        locationService
+        locationService,
+        opportunityMatcher,
+        notifications
     )
 
     init {
         doAnswer { it.arguments[0] }.`when`(sessions).save(anyValue())
+        `when`(opportunityMatcher.matchingProfessionalIds(anyValue())).thenReturn(emptyList())
     }
 
     @Test
@@ -49,8 +56,39 @@ class RequestSummaryServiceTest {
         val summary = summaries.summary(fixture.userId, fixture.session.id)
 
         assertEquals("Appliance repair", summary.title)
-        assertTrue(summary.description.contains("Washing machine is leaking"))
+        assertEquals(
+            """
+            Washing machine is leaking during every wash cycle.
+
+            Project details:
+            - What is happening with the appliance: Water leaks underneath
+            """.trimIndent(),
+            summary.description
+        )
         verify(sessions).save(fixture.session)
+    }
+
+    @Test
+    fun `summary uses validated AI draft when available`() {
+        val fixture = fixture()
+        `when`(sessionService.ownedSession(fixture.userId, fixture.session.id))
+            .thenReturn(fixture.session)
+        `when`(answers.findAllBySessionId(fixture.session.id)).thenReturn(listOf(fixture.answer))
+        `when`(questions.allQuestions(fixture.service.id)).thenReturn(listOf(fixture.question))
+        `when`(aiDrafts.generateDraft(anyValue())).thenReturn(
+            GeneratedRequestDraft(
+                title = "Repair leaking washing machine",
+                description = "I need help repairing a washing machine that leaks underneath during every wash cycle."
+            )
+        )
+
+        val summary = summaries.summary(fixture.userId, fixture.session.id)
+
+        assertEquals("Repair leaking washing machine", summary.title)
+        assertEquals(
+            "I need help repairing a washing machine that leaks underneath during every wash cycle.",
+            summary.description
+        )
     }
 
     @Test
