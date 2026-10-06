@@ -8,6 +8,7 @@ import com.findprofessional.marketplace.request.CustomerRequest
 import com.findprofessional.marketplace.request.CustomerRequestRepository
 import com.findprofessional.marketplace.request.RequestSession
 import com.findprofessional.marketplace.request.RequestSessionStatus
+import com.findprofessional.marketplace.notification.NotificationService
 import com.findprofessional.marketplace.service.MarketplaceService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -30,6 +31,7 @@ class ProfessionalOpportunityActionServiceTest {
     private val offers = mock(ProfessionalOfferRepository::class.java)
     private val attachments = mock(ProfessionalOfferAttachmentRepository::class.java)
     private val attachmentStorage = mock(ProfessionalOfferAttachmentStorage::class.java)
+    private val notifications = mock(NotificationService::class.java)
     private val service = ProfessionalOpportunityActionService(
         authorization,
         offerings,
@@ -38,7 +40,8 @@ class ProfessionalOpportunityActionServiceTest {
         offers,
         attachments,
         attachmentStorage,
-        PortfolioStorageProperties()
+        PortfolioStorageProperties(),
+        notifications
     )
 
     @Test

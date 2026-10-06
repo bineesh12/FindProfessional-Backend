@@ -259,11 +259,105 @@ class RequestSessionServiceTest {
         `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
         `when`(suggestions.findAllBySessionIdOrderByRankAsc(session.id)).thenReturn(emptyList())
         `when`(answers.findAllBySessionId(session.id)).thenReturn(emptyList())
+        `when`(answers.findBySessionIdAndQuestionId(session.id, question.id)).thenReturn(Optional.empty())
+        `when`(questions.allQuestions(marketplaceService.id)).thenReturn(listOf(question))
         `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id)).thenReturn(emptyList())
 
         val response = service.get(userId, session.id)
 
         assertEquals(listOf("SEK", "EUR", "NOK", "DKK", "USD", "GBP"), response.currentStep.supportedCurrencies)
+    }
+
+    @Test
+    fun `get advances when a migrated answer already satisfies the current question`() {
+        val userId = UUID.randomUUID()
+        val category = category()
+        val marketplaceService = MarketplaceService(
+            category = category,
+            code = "FLOORING",
+            name = "Flooring",
+            shortDescription = "Floor installation and repair",
+            iconKey = "flooring"
+        )
+        val postcode = ServiceQuestion(
+            service = marketplaceService,
+            key = "service_postcode",
+            prompt = "What is the postcode for this location?",
+            type = QuestionType.POSTCODE,
+            displayOrder = 81
+        )
+        val details = ServiceQuestion(
+            service = marketplaceService,
+            key = "task_details",
+            prompt = "Describe what you need help with.",
+            type = QuestionType.TEXT,
+            displayOrder = 90
+        )
+        val session = RequestSession(
+            customerId = userId,
+            category = category,
+            service = marketplaceService,
+            currentQuestion = postcode,
+            status = RequestSessionStatus.COLLECTING_ANSWERS
+        )
+        val migratedAnswer = RequestAnswer(session = session, question = postcode, value = "417 66")
+        `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
+        `when`(answers.findBySessionIdAndQuestionId(session.id, postcode.id))
+            .thenReturn(Optional.of(migratedAnswer))
+        `when`(answers.findAllBySessionId(session.id)).thenReturn(listOf(migratedAnswer))
+        `when`(questions.nextQuestion(marketplaceService.id, mapOf("service_postcode" to "417 66")))
+            .thenReturn(details)
+        `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id)).thenReturn(emptyList())
+
+        val response = service.get(userId, session.id)
+
+        assertEquals("task_details", response.currentStep.questionKey)
+        verify(sessions).save(session)
+    }
+
+    @Test
+    fun `get advances when a catalog migration deactivates the current question`() {
+        val userId = UUID.randomUUID()
+        val category = category()
+        val marketplaceService = MarketplaceService(
+            category = category,
+            code = "EVENT_PLANNING",
+            name = "Event planning",
+            shortDescription = "Plan an event",
+            iconKey = "event"
+        )
+        val removedDate = ServiceQuestion(
+            service = marketplaceService,
+            key = "preferred_date",
+            prompt = "When would you like the work to happen?",
+            type = QuestionType.DATE,
+            displayOrder = 70
+        )
+        val location = ServiceQuestion(
+            service = marketplaceService,
+            key = "service_location",
+            prompt = "Which municipality or city is the work in?",
+            type = QuestionType.LOCATION,
+            displayOrder = 80
+        )
+        val session = RequestSession(
+            customerId = userId,
+            category = category,
+            service = marketplaceService,
+            currentQuestion = removedDate,
+            status = RequestSessionStatus.COLLECTING_ANSWERS
+        )
+        `when`(sessions.findByIdAndCustomerId(session.id, userId)).thenReturn(Optional.of(session))
+        `when`(answers.findBySessionIdAndQuestionId(session.id, removedDate.id)).thenReturn(Optional.empty())
+        `when`(questions.allQuestions(marketplaceService.id)).thenReturn(listOf(location))
+        `when`(answers.findAllBySessionId(session.id)).thenReturn(emptyList())
+        `when`(questions.nextQuestion(marketplaceService.id, emptyMap())).thenReturn(location)
+        `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id)).thenReturn(emptyList())
+
+        val response = service.get(userId, session.id)
+
+        assertEquals("service_location", response.currentStep.questionKey)
+        verify(sessions).save(session)
     }
 
     @Test

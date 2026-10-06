@@ -6,6 +6,9 @@ import com.findprofessional.marketplace.professional.PortfolioStorageProperties
 import com.findprofessional.marketplace.request.CustomerRequest
 import com.findprofessional.marketplace.request.CustomerRequestRepository
 import com.findprofessional.marketplace.request.CustomerRequestStatus
+import com.findprofessional.marketplace.notification.CreateNotification
+import com.findprofessional.marketplace.notification.MarketplaceNotificationType
+import com.findprofessional.marketplace.notification.NotificationService
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,7 +24,8 @@ class ProfessionalOpportunityActionService(
     private val offers: ProfessionalOfferRepository,
     private val attachments: ProfessionalOfferAttachmentRepository,
     private val attachmentStorage: ProfessionalOfferAttachmentStorage,
-    private val storageProperties: PortfolioStorageProperties
+    private val storageProperties: PortfolioStorageProperties,
+    private val notifications: NotificationService
 ) {
     @Transactional
     fun decline(userId: UUID, requestId: UUID) {
@@ -82,6 +86,7 @@ class ProfessionalOpportunityActionService(
                 currency = normalized.currency
             )
         }
+        val previousStatus = offer.status
         if (status == ProfessionalOfferStatus.DRAFT && offer.status == ProfessionalOfferStatus.SUBMITTED) {
             throw ProfessionalOpportunityException(
                 "A submitted offer cannot be changed back to draft",
@@ -98,6 +103,18 @@ class ProfessionalOpportunityActionService(
         offer.scopeExcluded = normalized.scopeExcluded
         offer.status = status
         val saved = offers.save(offer)
+        if (status == ProfessionalOfferStatus.SUBMITTED && previousStatus != ProfessionalOfferStatus.SUBMITTED) {
+            notifications.create(
+                CreateNotification(
+                    userId = request.customerId,
+                    type = MarketplaceNotificationType.OFFER_RECEIVED,
+                    title = "New offer received",
+                    body = "You received a new offer for ${request.title}",
+                    requestId = request.id,
+                    offerId = saved.id
+                )
+            )
+        }
         return saved.toResponse(attachments.findAllByOfferIdOrderByCreatedAtAsc(saved.id), storageProperties.publicPath)
     }
 

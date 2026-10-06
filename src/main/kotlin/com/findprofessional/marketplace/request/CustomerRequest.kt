@@ -15,7 +15,7 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-enum class CustomerRequestStatus { PUBLISHED, COMPLETED }
+enum class CustomerRequestStatus { PUBLISHED, HIRED, COMPLETED, CANCELLED }
 
 @Entity
 @Table(name = "customer_requests")
@@ -40,7 +40,7 @@ class CustomerRequest(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val status: CustomerRequestStatus = CustomerRequestStatus.PUBLISHED,
+    var status: CustomerRequestStatus = CustomerRequestStatus.PUBLISHED,
 
     @Column(nullable = false)
     var title: String,

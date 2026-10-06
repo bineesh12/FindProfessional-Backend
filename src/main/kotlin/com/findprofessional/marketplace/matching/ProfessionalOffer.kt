@@ -16,7 +16,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
-enum class ProfessionalOfferStatus { DRAFT, SUBMITTED, WITHDRAWN }
+enum class ProfessionalOfferStatus { DRAFT, SUBMITTED, ACCEPTED, DECLINED, WITHDRAWN }
 
 @Entity
 @Table(name = "professional_offers")

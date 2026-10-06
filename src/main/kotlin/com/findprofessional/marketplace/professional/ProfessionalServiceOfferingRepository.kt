@@ -5,6 +5,7 @@ import java.util.UUID
 
 interface ProfessionalServiceOfferingRepository : JpaRepository<ProfessionalServiceOffering, UUID> {
     fun findAllByProfessionalUserIdOrderByDisplayOrderAsc(professionalUserId: UUID): List<ProfessionalServiceOffering>
+    fun findAllByServiceIdOrderByDisplayOrderAsc(serviceId: UUID): List<ProfessionalServiceOffering>
     fun existsByProfessionalUserIdAndServiceId(professionalUserId: UUID, serviceId: UUID): Boolean
     fun deleteAllByProfessionalUserId(professionalUserId: UUID)
 }

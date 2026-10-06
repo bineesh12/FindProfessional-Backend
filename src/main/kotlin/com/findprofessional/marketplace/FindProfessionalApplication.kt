@@ -6,6 +6,7 @@ import com.findprofessional.marketplace.service.CatalogProperties
 import com.findprofessional.marketplace.request.PostcodeResolverProperties
 import com.findprofessional.marketplace.request.RequestInputProperties
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
+import com.findprofessional.marketplace.notification.NotificationProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
@@ -17,7 +18,8 @@ import org.springframework.boot.runApplication
     OpenAiProperties::class,
     PostcodeResolverProperties::class,
     RequestInputProperties::class,
-    PortfolioStorageProperties::class
+    PortfolioStorageProperties::class,
+    NotificationProperties::class
 )
 class FindProfessionalApplication
 

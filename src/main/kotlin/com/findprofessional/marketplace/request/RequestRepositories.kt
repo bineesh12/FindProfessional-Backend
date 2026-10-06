@@ -1,12 +1,14 @@
 package com.findprofessional.marketplace.request
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Page
 import java.util.Optional
 import java.util.UUID
+import jakarta.persistence.LockModeType
 
 interface RequestSessionRepository : JpaRepository<RequestSession, UUID> {
     fun findByIdAndCustomerId(id: UUID, customerId: UUID): Optional<RequestSession>
@@ -30,6 +32,17 @@ interface RequestAnswerRepository : JpaRepository<RequestAnswer, UUID> {
 interface CustomerRequestRepository : JpaRepository<CustomerRequest, UUID> {
     fun findBySessionId(sessionId: UUID): Optional<CustomerRequest>
     fun findByIdAndCustomerId(id: UUID, customerId: UUID): Optional<CustomerRequest>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT request FROM CustomerRequest request WHERE request.id = :id")
+    fun findByIdForUpdate(@Param("id") id: UUID): Optional<CustomerRequest>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT request FROM CustomerRequest request WHERE request.id = :id AND request.customerId = :customerId")
+    fun findByIdAndCustomerIdForUpdate(
+        @Param("id") id: UUID,
+        @Param("customerId") customerId: UUID
+    ): Optional<CustomerRequest>
     fun findAllByCustomerIdAndStatusInOrderByCreatedAtDesc(
         customerId: UUID,
         statuses: Collection<CustomerRequestStatus>,
