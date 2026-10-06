@@ -9,12 +9,17 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestPart
+import org.springframework.web.multipart.MultipartFile
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/users/me")
 class UserController(
-    private val userService: UserService
+    private val userService: UserService,
+    private val profileImageService: UserProfileImageService
 ) {
     @GetMapping
     fun currentUser(
@@ -26,6 +31,17 @@ class UserController(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: UpdateUserProfileRequest
     ): UserResponse = userService.updateProfile(UUID.fromString(jwt.subject), request)
+
+    @PostMapping("/image")
+    fun uploadProfileImage(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestPart("file") file: MultipartFile
+    ): UserResponse = profileImageService.upload(UUID.fromString(jwt.subject), file)
+
+    @DeleteMapping("/image")
+    fun deleteProfileImage(
+        @AuthenticationPrincipal jwt: Jwt
+    ): UserResponse = profileImageService.delete(UUID.fromString(jwt.subject))
 
     @GetMapping("/privacy")
     fun privacyPreferences(

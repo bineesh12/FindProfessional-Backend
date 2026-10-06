@@ -19,5 +19,9 @@ class PortfolioStorageConfiguration(
             .toAbsolutePath().normalize().toUri().toString()
         val offerLocation = if (offerDirectoryUri.endsWith('/')) offerDirectoryUri else "$offerDirectoryUri/"
         registry.addResourceHandler("$publicPath/offers/**").addResourceLocations(offerLocation)
+        val profileDirectoryUri = Path.of(properties.localDirectory).resolve("profiles")
+            .toAbsolutePath().normalize().toUri().toString()
+        val profileLocation = if (profileDirectoryUri.endsWith('/')) profileDirectoryUri else "$profileDirectoryUri/"
+        registry.addResourceHandler("$publicPath/profiles/**").addResourceLocations(profileLocation)
     }
 }

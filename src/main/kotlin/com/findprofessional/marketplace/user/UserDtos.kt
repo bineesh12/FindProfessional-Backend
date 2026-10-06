@@ -43,6 +43,7 @@ data class UserResponse(
     val email: String?,
     val phoneNumber: String?,
     val displayName: String,
+    val profileImageUrl: String? = null,
     val roles: Set<UserRole>,
     val phoneVerified: Boolean,
     val roleSelectionRequired: Boolean
@@ -53,6 +54,7 @@ fun UserAccount.toResponse() = UserResponse(
     email = email,
     phoneNumber = phoneNumber,
     displayName = displayName,
+    profileImageUrl = profileImageUrl,
     roles = roles,
     phoneVerified = phoneVerified,
     roleSelectionRequired = roleSelectedAt == null

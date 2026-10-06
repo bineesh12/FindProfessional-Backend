@@ -33,6 +33,9 @@ class UserAccount(
     @Column(name = "display_name", nullable = false)
     var displayName: String,
 
+    @Column(name = "profile_image_url", length = 1000)
+    var profileImageUrl: String? = null,
+
     @Column(name = "google_subject", unique = true)
     var googleSubject: String? = null,
 

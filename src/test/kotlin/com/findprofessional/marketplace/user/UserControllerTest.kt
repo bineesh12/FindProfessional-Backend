@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
+import org.springframework.mock.web.MockMultipartFile
 import org.springframework.security.oauth2.jwt.Jwt
 import java.util.UUID
 
@@ -15,7 +16,7 @@ class UserControllerTest {
         val response = userResponse(userId)
         `when`(service.getCurrentUser(userId)).thenReturn(response)
 
-        val actual = UserController(service).currentUser(jwt(userId))
+        val actual = controller(service).currentUser(jwt(userId))
 
         assertEquals(response, actual)
     }
@@ -28,7 +29,7 @@ class UserControllerTest {
         val response = userResponse(userId).copy(displayName = request.displayName)
         `when`(service.updateProfile(userId, request)).thenReturn(response)
 
-        val actual = UserController(service).updateProfile(jwt(userId), request)
+        val actual = controller(service).updateProfile(jwt(userId), request)
 
         assertEquals(response, actual)
     }
@@ -40,7 +41,7 @@ class UserControllerTest {
         val response = PrivacyPreferencesResponse(analyticsEnabled = false, updatedAt = null)
         `when`(service.getPrivacyPreferences(userId)).thenReturn(response)
 
-        val actual = UserController(service).privacyPreferences(jwt(userId))
+        val actual = controller(service).privacyPreferences(jwt(userId))
 
         assertEquals(response, actual)
     }
@@ -53,7 +54,7 @@ class UserControllerTest {
         val response = PrivacyPreferencesResponse(analyticsEnabled = true, updatedAt = null)
         `when`(service.updatePrivacyPreferences(userId, request)).thenReturn(response)
 
-        val actual = UserController(service).updatePrivacyPreferences(jwt(userId), request)
+        val actual = controller(service).updatePrivacyPreferences(jwt(userId), request)
 
         assertEquals(response, actual)
     }
@@ -66,7 +67,7 @@ class UserControllerTest {
         val response = userResponse(userId)
         `when`(service.selectRole(userId, request)).thenReturn(response)
 
-        val actual = UserController(service).selectRole(jwt(userId), request)
+        val actual = controller(service).selectRole(jwt(userId), request)
 
         assertEquals(response, actual)
     }
@@ -80,6 +81,23 @@ class UserControllerTest {
         phoneVerified = true,
         roleSelectionRequired = false
     )
+
+    @Test
+    fun `profile image upload uses authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val userService = mock(UserService::class.java)
+        val imageService = mock(UserProfileImageService::class.java)
+        val file = MockMultipartFile("file", "profile.png", "image/png", byteArrayOf(1))
+        val response = userResponse(userId).copy(profileImageUrl = "/uploads/profiles/profile.png")
+        `when`(imageService.upload(userId, file)).thenReturn(response)
+
+        val actual = UserController(userService, imageService).uploadProfileImage(jwt(userId), file)
+
+        assertEquals(response, actual)
+    }
+
+    private fun controller(service: UserService) =
+        UserController(service, mock(UserProfileImageService::class.java))
 
     private fun jwt(userId: UUID) = Jwt.withTokenValue("access-token")
         .header("alg", "HS256")
