@@ -1,6 +1,9 @@
 package com.findprofessional.marketplace.user
 
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
+import java.time.Instant
 import java.util.UUID
 
 enum class RoleSelection {
@@ -20,11 +23,27 @@ data class SelectRoleRequest(
     val role: RoleSelection
 )
 
+data class UpdateUserProfileRequest(
+    @field:NotBlank
+    @field:Size(min = 2, max = 100)
+    val displayName: String
+)
+
+data class UpdatePrivacyPreferencesRequest(
+    val analyticsEnabled: Boolean
+)
+
+data class PrivacyPreferencesResponse(
+    val analyticsEnabled: Boolean,
+    val updatedAt: Instant?
+)
+
 data class UserResponse(
     val id: UUID,
     val email: String?,
     val phoneNumber: String?,
     val displayName: String,
+    val profileImageUrl: String? = null,
     val roles: Set<UserRole>,
     val phoneVerified: Boolean,
     val roleSelectionRequired: Boolean
@@ -35,6 +54,7 @@ fun UserAccount.toResponse() = UserResponse(
     email = email,
     phoneNumber = phoneNumber,
     displayName = displayName,
+    profileImageUrl = profileImageUrl,
     roles = roles,
     phoneVerified = phoneVerified,
     roleSelectionRequired = roleSelectedAt == null
