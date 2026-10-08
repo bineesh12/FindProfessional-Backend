@@ -1,5 +1,8 @@
 package com.findprofessional.marketplace.matching
 
+import com.findprofessional.marketplace.request.CustomerRequestStatus
+import com.findprofessional.marketplace.request.RequestCompletionResponse
+import com.findprofessional.marketplace.request.RequestCompletionService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -14,7 +17,8 @@ class ProfessionalOpportunityControllerTest {
     private val service = mock(ProfessionalOpportunityService::class.java)
     private val actions = mock(ProfessionalOpportunityActionService::class.java)
     private val attachments = mock(ProfessionalOfferAttachmentService::class.java)
-    private val controller = ProfessionalOpportunityController(service, actions, attachments)
+    private val completion = mock(RequestCompletionService::class.java)
+    private val controller = ProfessionalOpportunityController(service, actions, attachments, completion)
 
     @Test
     fun `feed uses authenticated professional subject`() {
@@ -83,6 +87,7 @@ class ProfessionalOpportunityControllerTest {
             description = "Repair a leaking roof.",
             serviceName = "Roofing",
             categoryName = "Home",
+            requestStatus = CustomerRequestStatus.PUBLISHED,
             location = null,
             distanceKm = null,
             publishedAt = Instant.now(),
@@ -94,6 +99,22 @@ class ProfessionalOpportunityControllerTest {
         `when`(service.getOpportunity(userId, requestId)).thenReturn(expected)
 
         assertEquals(expected, controller.getOpportunity(opportunityJwt(userId), requestId))
+    }
+
+    @Test
+    fun `work finished uses authenticated professional subject`() {
+        val userId = UUID.randomUUID()
+        val requestId = UUID.randomUUID()
+        val expected = RequestCompletionResponse(
+            requestId,
+            CustomerRequestStatus.WORK_FINISHED,
+            Instant.now(),
+            null
+        )
+        `when`(completion.markWorkFinished(userId, requestId)).thenReturn(expected)
+
+        assertEquals(expected, controller.markWorkFinished(opportunityJwt(userId), requestId))
+        verify(completion).markWorkFinished(userId, requestId)
     }
 }
 

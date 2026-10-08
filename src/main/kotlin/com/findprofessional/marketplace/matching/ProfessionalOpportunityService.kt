@@ -12,6 +12,7 @@ import com.findprofessional.marketplace.request.RequestLocationKind
 import com.findprofessional.marketplace.request.RequestLocationRepository
 import com.findprofessional.marketplace.request.RequestAnswerRepository
 import com.findprofessional.marketplace.user.UserAccountRepository
+import com.findprofessional.marketplace.subscription.ProfessionalSubscriptionService
 import org.springframework.http.HttpStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -33,7 +34,8 @@ class ProfessionalOpportunityService(
     private val offers: ProfessionalOfferRepository,
     private val declines: ProfessionalOpportunityDeclineRepository,
     private val answers: RequestAnswerRepository,
-    private val users: UserAccountRepository
+    private val users: UserAccountRepository,
+    private val subscriptions: ProfessionalSubscriptionService
 ) {
     @Transactional(readOnly = true)
     fun getOpportunities(userId: UUID): ProfessionalOpportunitiesResponse {
@@ -41,7 +43,8 @@ class ProfessionalOpportunityService(
         val serviceIds = offerings.findAllByProfessionalUserIdOrderByDisplayOrderAsc(userId)
             .map { it.service.id }
             .distinct()
-        if (serviceIds.isEmpty()) return ProfessionalOpportunitiesResponse(0, emptyList())
+        val subscription = subscriptions.getStatus(userId)
+        if (serviceIds.isEmpty()) return ProfessionalOpportunitiesResponse(0, emptyList(), subscription)
 
         val candidates = requests.findProfessionalOpportunities(
             CustomerRequestStatus.PUBLISHED,
@@ -83,7 +86,8 @@ class ProfessionalOpportunityService(
                     candidate.distanceKm,
                     offerByRequestId[candidate.request.id]
                 )
-            }
+            },
+            subscription = subscription
         )
     }
 
@@ -109,7 +113,7 @@ class ProfessionalOpportunityService(
         )
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun getOpportunity(userId: UUID, requestId: UUID): ProfessionalOpportunityResponse {
         authorization.requireProfessional(userId)
         val request = requests.findById(requestId).orElseThrow {
@@ -138,6 +142,8 @@ class ProfessionalOpportunityService(
                 HttpStatus.FORBIDDEN
             )
         }
+        val currentOffer = offers.findByProfessionalUserIdAndRequestId(userId, requestId).orElse(null)
+        if (currentOffer == null) subscriptions.registerOpportunityView(userId, request)
         val customer = users.findById(request.customerId).orElseThrow {
             ProfessionalOpportunityException("Customer was not found", "CUSTOMER_NOT_FOUND", HttpStatus.NOT_FOUND)
         }
@@ -154,7 +160,7 @@ class ProfessionalOpportunityService(
         return request.toResponse(
             location = location,
             distanceKm = distance,
-            offer = offers.findByProfessionalUserIdAndRequestId(userId, requestId).orElse(null),
+            offer = currentOffer,
             customer = OpportunityCustomerResponse(
                 displayName = customer.displayName.trim().ifBlank { "Customer" },
                 verified = customer.phoneVerified || customer.googleSubject != null
@@ -180,6 +186,7 @@ class ProfessionalOpportunityService(
         description = description,
         serviceName = service.name,
         categoryName = category.name,
+        requestStatus = status,
         location = location,
         distanceKm = distanceKm?.let { round(it * 10.0) / 10.0 },
         publishedAt = createdAt,

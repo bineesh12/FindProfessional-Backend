@@ -13,6 +13,8 @@ import com.findprofessional.marketplace.professional.PortfolioImageRepository
 import com.findprofessional.marketplace.professional.PortfolioProjectRepository
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
 import com.findprofessional.marketplace.professional.ProfessionalProfileRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationStatus
 import com.findprofessional.marketplace.user.CustomerAuthorizationService
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -29,6 +31,7 @@ class CustomerRequestQueryService(
     private val answers: RequestAnswerRepository,
     private val offers: ProfessionalOfferRepository,
     private val profiles: ProfessionalProfileRepository,
+    private val verifications: ProfessionalVerificationRepository,
     private val portfolioProjects: PortfolioProjectRepository,
     private val portfolioImages: PortfolioImageRepository,
     private val offerAttachments: ProfessionalOfferAttachmentRepository,
@@ -111,7 +114,7 @@ class CustomerRequestQueryService(
         val request = requireOwnedRequest(userId, requestId)
         val submittedOffers = offers.findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
             requestId,
-            if (request.status == CustomerRequestStatus.HIRED) {
+            if (request.status in AcceptedRequestStatuses) {
                 setOf(ProfessionalOfferStatus.ACCEPTED)
             } else {
                 setOf(ProfessionalOfferStatus.SUBMITTED)
@@ -275,6 +278,7 @@ class CustomerRequestQueryService(
             title = title,
             description = description,
             serviceName = service.name,
+            status = status,
             location = requestLocation?.let {
                 CustomerRequestLocationResponse(it.municipality, it.postalCode)
             },
@@ -287,6 +291,9 @@ class CustomerRequestQueryService(
         val distinctUserIds = userIds.distinct()
         if (distinctUserIds.isEmpty()) return emptyMap()
         val profileById = profiles.findAllById(distinctUserIds).associateBy { it.userId }
+        val verifiedProfessionalIds = verifications.findAllById(distinctUserIds)
+            .filter { it.status == ProfessionalVerificationStatus.VERIFIED }
+            .mapTo(mutableSetOf()) { it.professionalUserId }
         val projects = portfolioProjects.findAllByProfessionalUserIdIn(distinctUserIds)
             .sortedWith(compareBy({ it.professionalUserId }, { it.displayOrder }, { it.createdAt }))
         val imageByProjectId = if (projects.isEmpty()) {
@@ -307,7 +314,8 @@ class CustomerRequestQueryService(
                 serviceArea = profile.serviceArea,
                 experienceYears = profile.experienceYears,
                 about = profile.about,
-                portfolioImageUrl = thumbnailByProfessionalId[userId]?.let(::publicUrl)
+                portfolioImageUrl = thumbnailByProfessionalId[userId]?.let(::publicUrl),
+                businessVerified = userId in verifiedProfessionalIds
             )
         }
     }
@@ -347,8 +355,17 @@ class CustomerRequestQueryService(
         const val MinimumDescriptionLength = 20
         const val MaximumDescriptionLength = 4000
         val MoneyValuePattern = Regex("""^(\d+(?:\.\d+)?)\s+([A-Z]{3})$""")
-        val ActiveStatuses = setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+        val ActiveStatuses = setOf(
+            CustomerRequestStatus.PUBLISHED,
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED
+        )
         val CompletedStatuses = setOf(CustomerRequestStatus.COMPLETED)
+        val AcceptedRequestStatuses = setOf(
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
+            CustomerRequestStatus.COMPLETED
+        )
         val VisibleCustomerOfferStatuses = setOf(
             ProfessionalOfferStatus.SUBMITTED,
             ProfessionalOfferStatus.ACCEPTED,
@@ -366,8 +383,13 @@ private val CustomerRequestFilter.statuses: Set<CustomerRequestStatus>
         CustomerRequestFilter.ALL -> setOf(
             CustomerRequestStatus.PUBLISHED,
             CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
             CustomerRequestStatus.COMPLETED
         )
-        CustomerRequestFilter.ACTIVE -> setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+        CustomerRequestFilter.ACTIVE -> setOf(
+            CustomerRequestStatus.PUBLISHED,
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED
+        )
         CustomerRequestFilter.COMPLETED -> setOf(CustomerRequestStatus.COMPLETED)
     }

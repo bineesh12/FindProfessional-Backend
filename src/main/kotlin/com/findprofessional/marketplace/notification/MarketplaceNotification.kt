@@ -16,6 +16,9 @@ enum class MarketplaceNotificationType {
     OFFER_DECLINED,
     REQUEST_UPDATED,
     REQUEST_CANCELLED,
+    WORK_FINISHED,
+    REQUEST_COMPLETED,
+    REVIEW_RECEIVED,
     NEW_OPPORTUNITY
 }
 

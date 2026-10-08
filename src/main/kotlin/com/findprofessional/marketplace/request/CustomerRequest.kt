@@ -15,7 +15,7 @@ import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-enum class CustomerRequestStatus { PUBLISHED, HIRED, COMPLETED, CANCELLED }
+enum class CustomerRequestStatus { PUBLISHED, HIRED, WORK_FINISHED, COMPLETED, CANCELLED }
 
 @Entity
 @Table(name = "customer_requests")
@@ -47,6 +47,12 @@ class CustomerRequest(
 
     @Column(nullable = false)
     var description: String,
+
+    @Column(name = "work_finished_at")
+    var workFinishedAt: Instant? = null,
+
+    @Column(name = "completed_at")
+    var completedAt: Instant? = null,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),

@@ -2,6 +2,7 @@ package com.findprofessional.marketplace.matching
 
 import com.findprofessional.marketplace.professional.ProfessionalAuthorizationService
 import com.findprofessional.marketplace.professional.ProfessionalServiceOfferingRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationService
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
 import com.findprofessional.marketplace.request.CustomerRequest
 import com.findprofessional.marketplace.request.CustomerRequestRepository
@@ -25,6 +26,7 @@ class ProfessionalOpportunityActionService(
     private val attachments: ProfessionalOfferAttachmentRepository,
     private val attachmentStorage: ProfessionalOfferAttachmentStorage,
     private val storageProperties: PortfolioStorageProperties,
+    private val verification: ProfessionalVerificationService,
     private val notifications: NotificationService
 ) {
     @Transactional
@@ -87,6 +89,9 @@ class ProfessionalOpportunityActionService(
             )
         }
         val previousStatus = offer.status
+        if (status == ProfessionalOfferStatus.SUBMITTED && previousStatus != ProfessionalOfferStatus.SUBMITTED) {
+            verification.requireOfferSubmissionAllowed(userId)
+        }
         if (status == ProfessionalOfferStatus.DRAFT && offer.status == ProfessionalOfferStatus.SUBMITTED) {
             throw ProfessionalOpportunityException(
                 "A submitted offer cannot be changed back to draft",
@@ -103,13 +108,18 @@ class ProfessionalOpportunityActionService(
         offer.scopeExcluded = normalized.scopeExcluded
         offer.status = status
         val saved = offers.save(offer)
-        if (status == ProfessionalOfferStatus.SUBMITTED && previousStatus != ProfessionalOfferStatus.SUBMITTED) {
+        if (status == ProfessionalOfferStatus.SUBMITTED) {
+            val isUpdate = previousStatus == ProfessionalOfferStatus.SUBMITTED
             notifications.create(
                 CreateNotification(
                     userId = request.customerId,
                     type = MarketplaceNotificationType.OFFER_RECEIVED,
-                    title = "New offer received",
-                    body = "You received a new offer for ${request.title}",
+                    title = if (isUpdate) "Offer updated" else "New offer received",
+                    body = if (isUpdate) {
+                        "An offer was updated for ${request.title}"
+                    } else {
+                        "You received a new offer for ${request.title}"
+                    },
                     requestId = request.id,
                     offerId = saved.id
                 )

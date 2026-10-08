@@ -21,6 +21,9 @@ import com.findprofessional.marketplace.request.RequestAnswerRepository
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.user.UserAccountRepository
 import com.findprofessional.marketplace.user.UserAccount
+import com.findprofessional.marketplace.subscription.ProfessionalSubscriptionService
+import com.findprofessional.marketplace.subscription.ProfessionalSubscriptionStatusResponse
+import com.findprofessional.marketplace.subscription.ProfessionalPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -42,6 +45,7 @@ class ProfessionalOpportunityServiceTest {
     private val declines = mock(ProfessionalOpportunityDeclineRepository::class.java)
     private val answers = mock(RequestAnswerRepository::class.java)
     private val users = mock(UserAccountRepository::class.java)
+    private val subscriptions = mock(ProfessionalSubscriptionService::class.java)
     private val service = ProfessionalOpportunityService(
         authorization,
         offerings,
@@ -51,12 +55,26 @@ class ProfessionalOpportunityServiceTest {
         offers,
         declines,
         answers,
-        users
+        users,
+        subscriptions
+    )
+
+    private val freeSubscription = ProfessionalSubscriptionStatusResponse(
+        enabled = true,
+        plan = ProfessionalPlan.FREE,
+        source = null,
+        expiresAt = null,
+        freeOpportunityLimit = 5,
+        opportunitiesViewed = 0,
+        opportunitiesRemaining = 5,
+        periodEndsAt = java.time.Instant.parse("2026-11-01T00:00:00Z"),
+        canViewNewOpportunity = true
     )
 
     @Test
     fun `returns published requests matching offered services with preferred location`() {
         val professionalId = UUID.randomUUID()
+        `when`(subscriptions.getStatus(professionalId)).thenReturn(freeSubscription)
         val marketplaceService = opportunityService()
         val request = customerRequest(marketplaceService)
         val location = RequestLocation(
@@ -107,6 +125,7 @@ class ProfessionalOpportunityServiceTest {
     @Test
     fun `professional without offered services receives an empty feed`() {
         val professionalId = UUID.randomUUID()
+        `when`(subscriptions.getStatus(professionalId)).thenReturn(freeSubscription)
         `when`(offerings.findAllByProfessionalUserIdOrderByDisplayOrderAsc(professionalId)).thenReturn(emptyList())
 
         val response = service.getOpportunities(professionalId)
@@ -173,6 +192,7 @@ class ProfessionalOpportunityServiceTest {
     @Test
     fun `filters requests outside professional radius and explains nearby match`() {
         val professionalId = UUID.randomUUID()
+        `when`(subscriptions.getStatus(professionalId)).thenReturn(freeSubscription)
         val marketplaceService = opportunityService()
         val nearby = customerRequest(marketplaceService)
         val distant = customerRequest(marketplaceService)
@@ -252,6 +272,7 @@ class ProfessionalOpportunityServiceTest {
         assertEquals(true, response.customer?.verified)
         assertEquals("How large is the property?", response.requirements.single().label)
         assertEquals("180 sqm", response.requirements.single().value)
+        verify(subscriptions).registerOpportunityView(professionalId, request)
     }
 }
 

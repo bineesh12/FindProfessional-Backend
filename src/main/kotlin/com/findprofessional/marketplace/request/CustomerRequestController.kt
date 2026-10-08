@@ -20,7 +20,8 @@ import java.util.UUID
 class CustomerRequestController(
     private val service: CustomerRequestQueryService,
     private val offerDecisions: CustomerOfferDecisionService,
-    private val cancellations: CustomerRequestCancellationService
+    private val cancellations: CustomerRequestCancellationService,
+    private val completion: RequestCompletionService
 ) {
     @GetMapping
     fun list(
@@ -73,4 +74,10 @@ class CustomerRequestController(
         @AuthenticationPrincipal jwt: Jwt,
         @PathVariable requestId: UUID
     ) = cancellations.cancel(UUID.fromString(jwt.subject), requestId)
+
+    @PostMapping("/{requestId}/complete")
+    fun complete(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable requestId: UUID
+    ): RequestCompletionResponse = completion.complete(UUID.fromString(jwt.subject), requestId)
 }

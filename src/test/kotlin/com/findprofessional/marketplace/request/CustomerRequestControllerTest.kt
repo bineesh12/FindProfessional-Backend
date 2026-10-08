@@ -45,6 +45,7 @@ class CustomerRequestControllerTest {
                 "Kitchen renovation",
                 "Renovate the kitchen",
                 "Home renovation",
+                CustomerRequestStatus.PUBLISHED,
                 null,
                 null,
                 0
@@ -72,6 +73,7 @@ class CustomerRequestControllerTest {
             "Kitchen renovation",
             "Renovate the kitchen",
             "Home renovation",
+            CustomerRequestStatus.PUBLISHED,
             null,
             null,
             1
@@ -174,9 +176,30 @@ class CustomerRequestControllerTest {
         verify(cancellations).cancel(userId, requestId)
     }
 
+    @Test
+    fun `complete uses authenticated customer subject`() {
+        val service = mock(CustomerRequestQueryService::class.java)
+        val completion = mock(RequestCompletionService::class.java)
+        val controller = controller(service, completion = completion)
+        val userId = UUID.randomUUID()
+        val requestId = UUID.randomUUID()
+        val jwt = Jwt("token", Instant.now(), Instant.now().plusSeconds(60), mapOf("alg" to "none"), mapOf("sub" to userId.toString()))
+        val expected = RequestCompletionResponse(
+            requestId,
+            CustomerRequestStatus.COMPLETED,
+            Instant.now().minusSeconds(60),
+            Instant.now()
+        )
+        `when`(completion.complete(userId, requestId)).thenReturn(expected)
+
+        assertSame(expected, controller.complete(jwt, requestId))
+        verify(completion).complete(userId, requestId)
+    }
+
     private fun controller(
         service: CustomerRequestQueryService,
         decisions: CustomerOfferDecisionService = mock(CustomerOfferDecisionService::class.java),
-        cancellations: CustomerRequestCancellationService = mock(CustomerRequestCancellationService::class.java)
-    ) = CustomerRequestController(service, decisions, cancellations)
+        cancellations: CustomerRequestCancellationService = mock(CustomerRequestCancellationService::class.java),
+        completion: RequestCompletionService = mock(RequestCompletionService::class.java)
+    ) = CustomerRequestController(service, decisions, cancellations, completion)
 }

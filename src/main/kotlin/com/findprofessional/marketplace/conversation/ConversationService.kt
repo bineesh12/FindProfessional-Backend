@@ -165,7 +165,7 @@ class ConversationService(
 
     private fun Conversation.canSend(offer: ProfessionalOffer): Boolean =
         offer.status == ProfessionalOfferStatus.SUBMITTED && request.status == CustomerRequestStatus.PUBLISHED ||
-            offer.status == ProfessionalOfferStatus.ACCEPTED && request.status == CustomerRequestStatus.HIRED
+            offer.status == ProfessionalOfferStatus.ACCEPTED && request.status in AcceptedConversationStatuses
 
     private fun publishAfterCommit(conversation: Conversation, message: ConversationMessageResponse) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -197,5 +197,10 @@ class ConversationService(
         const val MaximumMessageLength = 4000
         const val MessagePreviewLength = 140
         val ConversationOfferStatuses = setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+        val AcceptedConversationStatuses = setOf(
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
+            CustomerRequestStatus.COMPLETED
+        )
     }
 }
