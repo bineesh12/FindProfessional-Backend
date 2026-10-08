@@ -26,6 +26,7 @@ class SecurityConfig(
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
+                it.requestMatchers("/privacy", "/account-deletion", "/legal/**").permitAll()
                 it.requestMatchers("/api/auth/**").permitAll()
                 it.requestMatchers("/actuator/health").permitAll()
                 it.requestMatchers("/uploads/**").permitAll()
