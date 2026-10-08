@@ -24,7 +24,7 @@ class PublicLegalControllerTest {
             .andExpect(status().isOk)
             .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
             .andExpect(content().string(containsString("Privacy Policy")))
-            .andExpect(content().string(containsString("privacy@getarbio.com")))
+            .andExpect(content().string(containsString("info@getarbio.com")))
     }
 
     @Test
@@ -33,7 +33,7 @@ class PublicLegalControllerTest {
             .andExpect(status().isOk)
             .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
             .andExpect(content().string(containsString("Delete your Arbio account")))
-            .andExpect(content().string(containsString("privacy@getarbio.com")))
+            .andExpect(content().string(containsString("info@getarbio.com")))
     }
 
     @Test
