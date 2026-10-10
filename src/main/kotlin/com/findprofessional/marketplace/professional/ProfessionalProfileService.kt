@@ -3,6 +3,8 @@ package com.findprofessional.marketplace.professional
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
 import com.findprofessional.marketplace.request.RequestLocationService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,7 +17,9 @@ class ProfessionalProfileService(
     private val offerings: ProfessionalServiceOfferingRepository,
     private val portfolio: ProfessionalPortfolioService,
     private val authorization: ProfessionalAuthorizationService,
-    private val locations: RequestLocationService
+    private val locations: RequestLocationService,
+    private val localization: CatalogLocalizationService,
+    private val localeResolver: RequestLocaleResolver
 ) {
     @Transactional(readOnly = true)
     fun setup(userId: UUID): ProfessionalProfileSetupResponse {
@@ -25,10 +29,10 @@ class ProfessionalProfileService(
                 val selected = offerings.findAllByProfessionalUserIdOrderByDisplayOrderAsc(userId)
                     .map(ProfessionalServiceOffering::service)
                     .ifEmpty { listOf(profile.primaryService) }
-                profile.toResponse(selected)
+                profile.toResponse(selected, localizedOptions(selected))
             }.orElse(null),
             suggestedContactEmail = user.email,
-            services = services.findAllActiveForProfessionalSetup().map(MarketplaceService::toOptionResponse),
+            services = localizedOptions(services.findAllActiveForProfessionalSetup()).values.toList(),
             portfolio = portfolio.loadProjects(userId)
         )
     }
@@ -50,7 +54,7 @@ class ProfessionalProfileService(
             contactEmail,
             about
         )
-        val coordinates = locations.resolvePostcode(servicePostalCode)
+        val coordinates = locations.resolvePostcode(serviceArea, servicePostalCode)
         val requestedServiceIds = request.serviceIds.distinct()
         if (requestedServiceIds.isEmpty() || requestedServiceIds.size > 10 || request.primaryServiceId !in requestedServiceIds) {
             throw ProfessionalProfileException(
@@ -109,8 +113,14 @@ class ProfessionalProfileService(
                 )
             }
         )
-        return saved.toResponse(orderedIds.map { checkNotNull(selectedServices[it]) })
+        val orderedServices = orderedIds.map { checkNotNull(selectedServices[it]) }
+        return saved.toResponse(orderedServices, localizedOptions(orderedServices))
     }
+
+    private fun localizedOptions(values: List<MarketplaceService>): Map<UUID, ProfessionalServiceOptionResponse> =
+        localization.services(values, localeResolver.current()).associate { service ->
+            service.id to ProfessionalServiceOptionResponse(service.id, service.name, service.categoryName)
+        }
 
     private fun validateNormalized(
         businessName: String,
@@ -143,21 +153,16 @@ class ProfessionalProfileService(
 }
 
 private fun ProfessionalProfile.toResponse(
-    offeredServices: List<MarketplaceService> = listOf(primaryService)
+    offeredServices: List<MarketplaceService> = listOf(primaryService),
+    localizedOptions: Map<UUID, ProfessionalServiceOptionResponse>
 ) = ProfessionalProfileResponse(
     businessName = businessName,
-    primaryService = primaryService.toOptionResponse(),
-    offeredServices = offeredServices.map(MarketplaceService::toOptionResponse),
+    primaryService = checkNotNull(localizedOptions[primaryService.id]),
+    offeredServices = offeredServices.map { checkNotNull(localizedOptions[it.id]) },
     serviceArea = serviceArea,
     servicePostalCode = servicePostalCode,
     serviceRadiusKm = serviceRadiusKm,
     experienceYears = experienceYears,
     contactEmail = contactEmail,
     about = about
-)
-
-private fun MarketplaceService.toOptionResponse() = ProfessionalServiceOptionResponse(
-    id = id,
-    name = name,
-    categoryName = category.name
 )

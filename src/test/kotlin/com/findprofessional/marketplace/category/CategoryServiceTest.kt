@@ -7,11 +7,13 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
 
 class CategoryServiceTest {
     private val categories = mock(ServiceCategoryRepository::class.java)
     private val authorization = mock(CustomerAuthorizationService::class.java)
-    private val service = CategoryService(categories, authorization)
+    private val service = CategoryService(categories, authorization, testCatalogLocalization(), testLocaleResolver())
 
     @Test
     fun `categories are returned in repository display order`() {

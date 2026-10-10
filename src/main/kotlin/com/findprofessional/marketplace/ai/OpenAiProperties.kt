@@ -8,5 +8,5 @@ data class OpenAiProperties(
     val model: String = "gpt-5.6-luna",
     val baseUrl: String = "https://api.openai.com/v1",
     val maxOutputTokens: Int = 500,
-    val timeoutSeconds: Long = 8
+    val timeoutSeconds: Long = 20
 )

@@ -2,7 +2,9 @@ package com.findprofessional.marketplace.notification
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
@@ -10,12 +12,22 @@ import org.mockito.Mockito.`when`
 import org.springframework.data.domain.PageRequest
 import java.util.Optional
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testLocalizedTextService
+import com.findprofessional.marketplace.user.UserAccountRepository
+import com.findprofessional.marketplace.user.UserAccount
+import com.findprofessional.marketplace.auth.anyValue
+import org.mockito.Mockito.doAnswer
 
 class NotificationServiceTest {
     private val notifications = mock(MarketplaceNotificationRepository::class.java)
     private val devices = mock(NotificationDeviceRepository::class.java)
     private val push = mock(PushNotificationGateway::class.java)
-    private val service = NotificationService(notifications, devices, push)
+    private val users = mock(UserAccountRepository::class.java)
+    private val service = NotificationService(notifications, devices, push, users, testLocalizedTextService())
+
+    init {
+        `when`(users.findById(org.mockito.ArgumentMatchers.any(UUID::class.java))).thenReturn(Optional.empty())
+    }
 
     @Test
     fun `list only returns notifications belonging to the authenticated user`() {
@@ -35,6 +47,26 @@ class NotificationServiceTest {
         assertEquals(1, result.notifications.size)
         assertEquals(1, result.unreadCount)
         assertEquals(notification.id, result.notifications.single().id)
+    }
+
+    @Test
+    fun `template notification uses recipient preferred locale`() {
+        val user = UserAccount(displayName = "Mottagare", preferredLocale = "sv")
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        doAnswer { it.arguments[0] }.`when`(notifications).save(anyValue())
+
+        val notification = service.create(
+            CreateNotification(
+                userId = user.id,
+                type = MarketplaceNotificationType.OFFER_ACCEPTED,
+                titleKey = "notification.offer.accepted.title",
+                bodyKey = "notification.offer.accepted.body",
+                bodyArguments = listOf("Takreparation")
+            )
+        )
+
+        assertNotEquals("Offer accepted", notification.title)
+        assertTrue(notification.body.contains("Takreparation"))
     }
 
     @Test

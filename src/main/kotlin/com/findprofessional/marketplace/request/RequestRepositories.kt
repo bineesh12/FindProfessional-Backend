@@ -100,6 +100,10 @@ interface RequestLocationRepository : JpaRepository<RequestLocation, UUID> {
 
 interface PostcodeCoordinateRepository : JpaRepository<PostcodeCoordinate, UUID> {
     fun findByCountryCodeAndPostalCode(countryCode: String, postalCode: String): Optional<PostcodeCoordinate>
+    fun findByMunicipalityIgnoreCaseAndPostalCode(
+        municipality: String,
+        postalCode: String
+    ): Optional<PostcodeCoordinate>
 }
 
 interface RequestServiceSuggestionRepository : JpaRepository<RequestServiceSuggestion, UUID> {

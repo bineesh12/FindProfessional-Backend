@@ -3,6 +3,7 @@ package com.findprofessional.marketplace.ai
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.http.MediaType
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 
@@ -32,9 +33,21 @@ class OpenAiRequestDraftService(
             ?.path("text")
             ?.asText()
             ?: response.path("output_text").asText().takeIf(String::isNotBlank)
-            ?: return null
+        if (outputText == null) {
+            logger.warn(
+                "OpenAI response did not contain output text; responseId={}, status={}",
+                response.path("id").asText("unknown"),
+                response.path("status").asText("unknown")
+            )
+            return null
+        }
         return runCatching {
             objectMapper.readValue(outputText, GeneratedRequestDraft::class.java)
+        }.onFailure {
+            logger.warn(
+                "OpenAI response output was not a valid request draft; responseId={}",
+                response.path("id").asText("unknown")
+            )
         }.getOrNull()
     }
 
@@ -69,4 +82,8 @@ class OpenAiRequestDraftService(
             )
         )
     )
+
+    private companion object {
+        val logger = LoggerFactory.getLogger(OpenAiRequestDraftService::class.java)
+    }
 }

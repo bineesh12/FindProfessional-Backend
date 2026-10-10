@@ -18,6 +18,12 @@ import com.findprofessional.marketplace.professional.ProfessionalProfileReposito
 import com.findprofessional.marketplace.professional.PortfolioImageRepository
 import com.findprofessional.marketplace.professional.PortfolioProjectRepository
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
+import com.findprofessional.marketplace.professional.ProfessionalBusinessType
+import com.findprofessional.marketplace.professional.ProfessionalVerification
+import com.findprofessional.marketplace.professional.ProfessionalVerificationRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationStatus
+import com.findprofessional.marketplace.professional.ProfessionalServiceOfferingRepository
+import com.findprofessional.marketplace.review.ProfessionalReviewRepository
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.user.CustomerAuthorizationService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -28,6 +34,8 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.util.UUID
@@ -41,8 +49,11 @@ class CustomerRequestQueryServiceTest {
     private val answers = mock(RequestAnswerRepository::class.java)
     private val offers = mock(ProfessionalOfferRepository::class.java)
     private val profiles = mock(ProfessionalProfileRepository::class.java)
+    private val verifications = mock(ProfessionalVerificationRepository::class.java)
     private val portfolioProjects = mock(PortfolioProjectRepository::class.java)
     private val portfolioImages = mock(PortfolioImageRepository::class.java)
+    private val serviceOfferings = mock(ProfessionalServiceOfferingRepository::class.java)
+    private val reviews = mock(ProfessionalReviewRepository::class.java)
     private val offerAttachments = mock(ProfessionalOfferAttachmentRepository::class.java)
     private val opportunityMatcher = mock(OpportunityNotificationMatcher::class.java)
     private val notifications = mock(NotificationService::class.java)
@@ -53,12 +64,17 @@ class CustomerRequestQueryServiceTest {
         answers,
         offers,
         profiles,
+        verifications,
         portfolioProjects,
         portfolioImages,
+        serviceOfferings,
+        reviews,
         offerAttachments,
         PortfolioStorageProperties(),
         opportunityMatcher,
-        notifications
+        notifications,
+        testCatalogLocalization(),
+        testLocaleResolver()
     )
 
     @Test
@@ -69,7 +85,11 @@ class CustomerRequestQueryServiceTest {
         `when`(
             requests.countByCustomerIdAndStatusIn(
                 fixture.userId,
-                setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+                setOf(
+                    CustomerRequestStatus.PUBLISHED,
+                    CustomerRequestStatus.HIRED,
+                    CustomerRequestStatus.WORK_FINISHED
+                )
             )
         )
             .thenReturn(1)
@@ -81,6 +101,7 @@ class CustomerRequestQueryServiceTest {
                 setOf(
                     CustomerRequestStatus.PUBLISHED,
                     CustomerRequestStatus.HIRED,
+                    CustomerRequestStatus.WORK_FINISHED,
                     CustomerRequestStatus.COMPLETED
                 ),
                 pageable
@@ -122,7 +143,11 @@ class CustomerRequestQueryServiceTest {
         `when`(
             requests.countByCustomerIdAndStatusIn(
                 userId,
-                setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+                setOf(
+                    CustomerRequestStatus.PUBLISHED,
+                    CustomerRequestStatus.HIRED,
+                    CustomerRequestStatus.WORK_FINISHED
+                )
             )
         ).thenReturn(2)
         `when`(requests.countByCustomerIdAndStatusIn(userId, setOf(CustomerRequestStatus.COMPLETED))).thenReturn(0)
@@ -181,8 +206,9 @@ class CustomerRequestQueryServiceTest {
             CreateNotification(
                 userId = professionalId,
                 type = MarketplaceNotificationType.REQUEST_UPDATED,
-                title = "Opportunity updated",
-                body = fixture.request.title,
+                titleKey = "notification.request.updated.title",
+                bodyKey = "notification.request.updated.body",
+                bodyArguments = listOf(fixture.request.title),
                 requestId = fixture.request.id
             )
         )
@@ -245,6 +271,18 @@ class CustomerRequestQueryServiceTest {
             )
         ).thenReturn(listOf(offer))
         `when`(profiles.findAllById(listOf(professionalId))).thenReturn(listOf(profile))
+        `when`(verifications.findAllById(listOf(professionalId))).thenReturn(
+            listOf(
+                ProfessionalVerification(
+                    professionalUserId = professionalId,
+                    businessType = ProfessionalBusinessType.SOLE_TRADER,
+                    countryCode = "SE",
+                    organizationNumber = "556123-4567",
+                    fTaxConfirmed = true,
+                    status = ProfessionalVerificationStatus.VERIFIED
+                )
+            )
+        )
         `when`(portfolioProjects.findAllByProfessionalUserIdIn(listOf(professionalId))).thenReturn(emptyList())
         `when`(locations.findAllByRequestIdIn(listOf(fixture.request.id))).thenReturn(listOf(fixture.location))
         `when`(answers.findAllBySessionId(fixture.session.id)).thenReturn(listOf(fixture.budgetAnswer))
@@ -252,6 +290,7 @@ class CustomerRequestQueryServiceTest {
         val response = service.offers(fixture.userId, fixture.request.id, CustomerOfferSort.LATEST)
 
         assertEquals("Nordic Renovation", response.offers.single().professional.businessName)
+        assertEquals(true, response.offers.single().professional.businessVerified)
         assertEquals("12500", response.offers.single().amount)
         assertEquals("SEK", response.offers.single().currency)
         assertEquals("Gothenburg", response.request.location?.municipality)
@@ -327,6 +366,7 @@ class CustomerRequestQueryServiceTest {
         `when`(requests.findByIdAndCustomerId(fixture.request.id, fixture.userId))
             .thenReturn(Optional.of(fixture.request))
         `when`(profiles.findAllById(listOf(professionalId))).thenReturn(listOf(profile))
+        `when`(verifications.findAllById(listOf(professionalId))).thenReturn(emptyList())
         `when`(portfolioProjects.findAllByProfessionalUserIdIn(listOf(professionalId))).thenReturn(emptyList())
         `when`(locations.findAllByRequestIdIn(listOf(fixture.request.id))).thenReturn(listOf(fixture.location))
         `when`(answers.findAllBySessionId(fixture.session.id)).thenReturn(listOf(fixture.budgetAnswer))

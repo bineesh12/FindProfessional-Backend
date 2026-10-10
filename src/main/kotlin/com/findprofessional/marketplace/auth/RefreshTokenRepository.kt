@@ -10,4 +10,5 @@ interface RefreshTokenRepository : JpaRepository<RefreshToken, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findByTokenHash(tokenHash: String): Optional<RefreshToken>
     fun findAllByFamilyIdAndRevokedAtIsNull(familyId: UUID): List<RefreshToken>
+    fun deleteAllByUserId(userId: UUID): Long
 }

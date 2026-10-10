@@ -13,6 +13,8 @@ import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import java.util.Optional
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
 
 class ServiceCatalogServiceTest {
     private val services = mock(MarketplaceServiceRepository::class.java)
@@ -20,14 +22,19 @@ class ServiceCatalogServiceTest {
     private val nearbyServices = mock(NearbyServiceRepository::class.java)
     private val authorization = mock(CustomerAuthorizationService::class.java)
     private val properties = CatalogProperties()
-    private val catalog = ServiceCatalogService(services, categories, nearbyServices, authorization, properties)
+    private val catalog = ServiceCatalogService(
+        services, categories, nearbyServices, authorization, properties,
+        testCatalogLocalization(), testLocaleResolver()
+    )
 
     @Test
     fun `nearby services are ranked by repository and distance is rounded`() {
         val userId = UUID.randomUUID()
-        val match = NearbyServiceMatch(marketplaceService().toResponse(), 2.345)
+        val service = marketplaceService()
+        val match = NearbyServiceMatch(service.id, 2.345)
         `when`(nearbyServices.findNearby(59.3293, 18.0686, 50.0, 10))
             .thenReturn(listOf(match))
+        `when`(services.findAllById(listOf(service.id))).thenReturn(listOf(service))
 
         val response = catalog.listNearby(userId, 59.3293, 18.0686, 50.0)
 
@@ -60,11 +67,11 @@ class ServiceCatalogServiceTest {
     @Test
     fun `search trims and normalizes query`() {
         val userId = UUID.randomUUID()
-        `when`(services.search("%roof repair%")).thenReturn(listOf(marketplaceService()))
+        `when`(services.searchLocalized("%roof repair%", "en")).thenReturn(listOf(marketplaceService()))
 
         val response = catalog.search(userId, "  Roof Repair  ")
 
-        verify(services).search("%roof repair%")
+        verify(services).searchLocalized("%roof repair%", "en")
         assertEquals(1, response.size)
     }
 

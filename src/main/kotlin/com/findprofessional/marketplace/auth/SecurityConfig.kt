@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
 import javax.crypto.spec.SecretKeySpec
 
 @Configuration
@@ -21,18 +22,19 @@ class SecurityConfig(
     private val authProperties: AuthProperties
 ) {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain =
+    fun securityFilterChain(http: HttpSecurity, activeAccountFilter: ActiveAccountFilter): SecurityFilterChain =
         http
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                it.requestMatchers("/privacy", "/account-deletion", "/legal/**").permitAll()
+                it.requestMatchers("/privacy", "/terms", "/account-deletion", "/legal/**").permitAll()
                 it.requestMatchers("/api/auth/**").permitAll()
                 it.requestMatchers("/actuator/health").permitAll()
                 it.requestMatchers("/uploads/**").permitAll()
                 it.anyRequest().authenticated()
             }
             .oauth2ResourceServer { it.jwt {} }
+            .addFilterAfter(activeAccountFilter, BearerTokenAuthenticationFilter::class.java)
             .build()
 
     @Bean

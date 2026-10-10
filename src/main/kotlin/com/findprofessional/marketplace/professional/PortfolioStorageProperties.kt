@@ -5,7 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties("app.portfolio.storage")
 data class PortfolioStorageProperties(
     val localDirectory: String = defaultPortfolioUploadDirectory(),
-    val publicPath: String = "/uploads"
+    val publicPath: String = "/uploads",
+    val requirePersistent: Boolean = false,
+    val persistentMountPath: String = ""
 )
 
 private fun defaultPortfolioUploadDirectory(): String =

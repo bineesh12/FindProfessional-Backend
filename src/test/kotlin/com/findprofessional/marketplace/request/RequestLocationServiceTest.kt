@@ -23,8 +23,7 @@ class RequestLocationServiceTest {
     private val service = RequestLocationService(
         coordinates,
         locations,
-        geocoder,
-        PostcodeResolverProperties()
+        geocoder
     )
 
     init {
@@ -34,10 +33,12 @@ class RequestLocationServiceTest {
     @Test
     fun `resolves and stores service location coordinates`() {
         val request = request()
+        `when`(coordinates.findByMunicipalityIgnoreCaseAndPostalCode("Gothenburg", "418 33"))
+            .thenReturn(Optional.empty())
         `when`(coordinates.findByCountryCodeAndPostalCode("se", "418 33"))
             .thenReturn(Optional.empty())
-        `when`(geocoder.resolve("se", "418 33"))
-            .thenReturn(ResolvedPostcode(57.72, 11.95, "TEST"))
+        `when`(geocoder.resolve("Gothenburg", "418 33"))
+            .thenReturn(ResolvedPostcode("se", 57.72, 11.95, "TEST"))
 
         service.saveResolvedLocations(
             request,
@@ -57,10 +58,11 @@ class RequestLocationServiceTest {
     @Test
     fun `reuses cached postcode coordinates`() {
         val request = request()
-        `when`(coordinates.findByCountryCodeAndPostalCode("se", "418 33"))
+        `when`(coordinates.findByMunicipalityIgnoreCaseAndPostalCode("Gothenburg", "418 33"))
             .thenReturn(Optional.of(PostcodeCoordinate(
                 countryCode = "se",
                 postalCode = "418 33",
+                municipality = "Gothenburg",
                 latitude = 57.72,
                 longitude = 11.95,
                 source = "CACHE"
@@ -76,6 +78,22 @@ class RequestLocationServiceTest {
     }
 
     @Test
+    fun `resolves a Polish postcode without forcing the Swedish country code`() {
+        `when`(coordinates.findByMunicipalityIgnoreCaseAndPostalCode("Poznan", "60802"))
+            .thenReturn(Optional.empty())
+        `when`(coordinates.findByCountryCodeAndPostalCode("pl", "60802"))
+            .thenReturn(Optional.empty())
+        `when`(geocoder.resolve("Poznan", "60802"))
+            .thenReturn(ResolvedPostcode("pl", 52.40, 16.92, "TEST"))
+
+        val resolved = service.resolvePostcode("Poznan", "60802")
+
+        assertEquals("pl", resolved.countryCode)
+        assertEquals("Poznan", resolved.municipality)
+        assertEquals(52.40, resolved.latitude)
+    }
+
+    @Test
     fun `rejects a location without postcode`() {
         assertThrows(RequestException::class.java) {
             service.saveResolvedLocations(request(), mapOf("service_location" to "Gothenburg"))
@@ -84,9 +102,9 @@ class RequestLocationServiceTest {
 
     @Test
     fun `reports resolver outages separately from unknown postcodes`() {
-        `when`(coordinates.findByCountryCodeAndPostalCode("se", "418 33"))
+        `when`(coordinates.findByMunicipalityIgnoreCaseAndPostalCode("Gothenburg", "418 33"))
             .thenReturn(Optional.empty())
-        `when`(geocoder.resolve("se", "418 33")).thenThrow(IllegalStateException("offline"))
+        `when`(geocoder.resolve("Gothenburg", "418 33")).thenThrow(IllegalStateException("offline"))
 
         val exception = assertThrows(RequestException::class.java) {
             service.saveResolvedLocations(

@@ -6,6 +6,7 @@ data class RequestDraftAnswer(
 )
 
 data class RequestDraftInput(
+    val languageTag: String,
     val categoryName: String,
     val serviceName: String,
     val customerDescription: String?,

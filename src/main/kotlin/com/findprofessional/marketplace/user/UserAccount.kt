@@ -60,6 +60,12 @@ class UserAccount(
     @Column(name = "analytics_consent_updated_at")
     var analyticsConsentUpdatedAt: Instant? = null,
 
+    @Column(name = "preferred_locale", nullable = false, length = 10)
+    var preferredLocale: String = "en",
+
+    @Column(name = "deleted_at")
+    var deletedAt: Instant? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 

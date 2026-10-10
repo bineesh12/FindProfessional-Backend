@@ -20,4 +20,5 @@ interface NotificationDeviceRepository : JpaRepository<NotificationDevice, UUID>
     fun findByToken(token: String): Optional<NotificationDevice>
     fun findAllByUserId(userId: UUID): List<NotificationDevice>
     fun deleteByIdAndUserId(id: UUID, userId: UUID): Long
+    fun deleteAllByUserId(userId: UUID): Long
 }

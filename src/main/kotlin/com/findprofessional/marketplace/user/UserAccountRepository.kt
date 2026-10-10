@@ -1,10 +1,18 @@
 package com.findprofessional.marketplace.user
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
+import jakarta.persistence.LockModeType
 import java.util.Optional
 import java.util.UUID
 
 interface UserAccountRepository : JpaRepository<UserAccount, UUID> {
+    fun existsByIdAndDeletedAtIsNull(id: UUID): Boolean
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from UserAccount user where user.id = :id")
+    fun findLockedById(id: UUID): Optional<UserAccount>
+
     fun existsByEmail(email: String): Boolean
     fun existsByPhoneNumber(phoneNumber: String): Boolean
     fun findByEmail(email: String): Optional<UserAccount>

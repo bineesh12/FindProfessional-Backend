@@ -3,6 +3,7 @@ package com.findprofessional.marketplace.conversation
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
+import com.findprofessional.marketplace.user.UserSafetyService
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.springframework.security.oauth2.jwt.Jwt
@@ -13,7 +14,7 @@ class ConversationControllerTest {
     @Test
     fun `send uses authenticated user and conversation ids`() {
         val service = mock(ConversationService::class.java)
-        val controller = ConversationController(service)
+        val controller = ConversationController(service, mock(UserSafetyService::class.java))
         val userId = UUID.randomUUID()
         val conversationId = UUID.randomUUID()
         val input = SendConversationMessageRequest("Can you start next week?")

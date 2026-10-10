@@ -1,6 +1,8 @@
 package com.findprofessional.marketplace.professional
 
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,7 +18,9 @@ class ProfessionalPortfolioService(
     private val profiles: ProfessionalProfileRepository,
     private val authorization: ProfessionalAuthorizationService,
     private val storage: PortfolioImageStorage,
-    private val storageProperties: PortfolioStorageProperties
+    private val storageProperties: PortfolioStorageProperties,
+    private val localization: CatalogLocalizationService,
+    private val localeResolver: RequestLocaleResolver
 ) {
     @Transactional(readOnly = true)
     fun list(userId: UUID): List<PortfolioProjectResponse> {
@@ -177,7 +181,9 @@ class ProfessionalPortfolioService(
         id = id,
         title = title,
         description = description,
-        service = ProfessionalServiceOptionResponse(service.id, service.name, service.category.name),
+        service = localization.services(listOf(service), localeResolver.current()).single().let {
+            ProfessionalServiceOptionResponse(it.id, it.name, it.categoryName)
+        },
         images = projectImages.map { it.toResponse() }
     )
 

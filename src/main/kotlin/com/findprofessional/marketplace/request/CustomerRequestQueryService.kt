@@ -13,7 +13,16 @@ import com.findprofessional.marketplace.professional.PortfolioImageRepository
 import com.findprofessional.marketplace.professional.PortfolioProjectRepository
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
 import com.findprofessional.marketplace.professional.ProfessionalProfileRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationRepository
+import com.findprofessional.marketplace.professional.ProfessionalVerificationStatus
+import com.findprofessional.marketplace.professional.ProfessionalServiceOfferingRepository
+import com.findprofessional.marketplace.professional.ProfessionalServiceOptionResponse
+import com.findprofessional.marketplace.professional.PortfolioImageResponse
+import com.findprofessional.marketplace.professional.PortfolioProjectResponse
+import com.findprofessional.marketplace.review.ProfessionalReviewRepository
 import com.findprofessional.marketplace.user.CustomerAuthorizationService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -29,12 +38,17 @@ class CustomerRequestQueryService(
     private val answers: RequestAnswerRepository,
     private val offers: ProfessionalOfferRepository,
     private val profiles: ProfessionalProfileRepository,
+    private val verifications: ProfessionalVerificationRepository,
     private val portfolioProjects: PortfolioProjectRepository,
     private val portfolioImages: PortfolioImageRepository,
+    private val serviceOfferings: ProfessionalServiceOfferingRepository,
+    private val reviews: ProfessionalReviewRepository,
     private val offerAttachments: ProfessionalOfferAttachmentRepository,
     private val storageProperties: PortfolioStorageProperties,
     private val opportunityMatcher: OpportunityNotificationMatcher,
-    private val notifications: NotificationService
+    private val notifications: NotificationService,
+    private val localization: CatalogLocalizationService,
+    private val localeResolver: RequestLocaleResolver
 ) {
     @Transactional(readOnly = true)
     fun list(
@@ -91,7 +105,8 @@ class CustomerRequestQueryService(
                 request.toListItem(
                     locationByRequestId[request.id],
                     answerBySessionId[request.session.id].orEmpty(),
-                    offerCount
+                    offerCount,
+                    localeResolver.current()
                 )
             },
             page = page,
@@ -111,7 +126,7 @@ class CustomerRequestQueryService(
         val request = requireOwnedRequest(userId, requestId)
         val submittedOffers = offers.findAllByRequestIdAndStatusInOrderByUpdatedAtDesc(
             requestId,
-            if (request.status == CustomerRequestStatus.HIRED) {
+            if (request.status in AcceptedRequestStatuses) {
                 setOf(ProfessionalOfferStatus.ACCEPTED)
             } else {
                 setOf(ProfessionalOfferStatus.SUBMITTED)
@@ -119,7 +134,7 @@ class CustomerRequestQueryService(
         )
         val professionalById = professionalSummaries(submittedOffers.map { it.professionalUserId })
         return CustomerRequestOffersResponse(
-            request = request.toOfferRequest(submittedOffers.size.toLong()),
+            request = request.toOfferRequest(submittedOffers.size.toLong(), localeResolver.current()),
             offers = submittedOffers.sorted(sort).map { offer ->
                 offer.toCustomerOffer(checkNotNull(professionalById[offer.professionalUserId]))
             }
@@ -143,7 +158,8 @@ class CustomerRequestQueryService(
         )
         return CustomerOfferDetailsResponse(
             request = request.toOfferRequest(
-                offers.countByRequestIdAndStatusIn(requestId, VisibleOfferListStatuses)
+                offers.countByRequestIdAndStatusIn(requestId, VisibleOfferListStatuses),
+                localeResolver.current()
             ),
             offer = offer.toCustomerOffer(professional),
             attachments = offerAttachments.findAllByOfferIdOrderByCreatedAtAsc(offer.id).map { attachment ->
@@ -202,8 +218,9 @@ class CustomerRequestQueryService(
                 CreateNotification(
                     userId = professionalId,
                     type = MarketplaceNotificationType.REQUEST_UPDATED,
-                    title = "Opportunity updated",
-                    body = request.title,
+                    titleKey = "notification.request.updated.title",
+                    bodyKey = "notification.request.updated.body",
+                    bodyArguments = listOf(request.title),
                     requestId = request.id
                 )
             )
@@ -219,13 +236,16 @@ class CustomerRequestQueryService(
     private fun CustomerRequest.toListItem(
         location: RequestLocation?,
         requestAnswers: List<RequestAnswer>,
-        offerCount: Long
-    ) = CustomerRequestListItemResponse(
+        offerCount: Long,
+        locale: String
+    ): CustomerRequestListItemResponse {
+        val localizedService = localization.services(listOf(service), locale).single()
+        return CustomerRequestListItemResponse(
         id = id,
         title = title,
         description = description,
-        categoryName = category.name,
-        serviceName = service.name,
+        categoryName = localizedService.categoryName,
+        serviceName = localizedService.name,
         serviceIconKey = service.iconKey,
         status = status,
         location = location?.let { CustomerRequestLocationResponse(it.municipality, it.postalCode) },
@@ -237,7 +257,8 @@ class CustomerRequestQueryService(
         canDelete = status == CustomerRequestStatus.PUBLISHED && offerCount == 0L,
         createdAt = createdAt,
         updatedAt = updatedAt
-    )
+        )
+    }
 
     private fun String.toBudget(): CustomerRequestBudgetResponse? {
         val value = trim()
@@ -264,7 +285,10 @@ class CustomerRequestQueryService(
             )
         }
 
-    private fun CustomerRequest.toOfferRequest(submittedOfferCount: Long): CustomerOfferRequestResponse {
+    private fun CustomerRequest.toOfferRequest(
+        submittedOfferCount: Long,
+        locale: String
+    ): CustomerOfferRequestResponse {
         val requestLocation = locations.findAllByRequestIdIn(listOf(id)).preferredLocation()
         val requestBudget = answers.findAllBySessionId(session.id)
             .firstOrNull { it.question.type == QuestionType.MONEY }
@@ -274,7 +298,8 @@ class CustomerRequestQueryService(
             id = id,
             title = title,
             description = description,
-            serviceName = service.name,
+            serviceName = localization.services(listOf(service), locale).single().name,
+            status = status,
             location = requestLocation?.let {
                 CustomerRequestLocationResponse(it.municipality, it.postalCode)
             },
@@ -287,6 +312,9 @@ class CustomerRequestQueryService(
         val distinctUserIds = userIds.distinct()
         if (distinctUserIds.isEmpty()) return emptyMap()
         val profileById = profiles.findAllById(distinctUserIds).associateBy { it.userId }
+        val verifiedProfessionalIds = verifications.findAllById(distinctUserIds)
+            .filter { it.status == ProfessionalVerificationStatus.VERIFIED }
+            .mapTo(mutableSetOf()) { it.professionalUserId }
         val projects = portfolioProjects.findAllByProfessionalUserIdIn(distinctUserIds)
             .sortedWith(compareBy({ it.professionalUserId }, { it.displayOrder }, { it.createdAt }))
         val imageByProjectId = if (projects.isEmpty()) {
@@ -300,14 +328,47 @@ class CustomerRequestQueryService(
                 imageByProjectId[project.id]?.firstOrNull()?.storageKey
             }
         }
+        val offeringsByProfessionalId = serviceOfferings
+            .findAllByProfessionalUserIdInOrderByDisplayOrderAsc(distinctUserIds)
+            .groupBy { it.professionalUserId }
+        val localizedServices = localization.services(
+            (offeringsByProfessionalId.values.flatten().map { it.service } + projects.map { it.service }).distinctBy { it.id },
+            localeResolver.current()
+        ).associateBy { it.id }
+        val reviewSummaryByProfessionalId = reviews.summaries(distinctUserIds).associateBy { it.professionalId }
         return profileById.mapValues { (userId, profile) ->
+            val professionalProjects = projects.filter { it.professionalUserId == userId }.map { project ->
+                val localizedService = checkNotNull(localizedServices[project.service.id])
+                PortfolioProjectResponse(
+                    id = project.id,
+                    title = project.title,
+                    description = project.description,
+                    service = ProfessionalServiceOptionResponse(
+                        localizedService.id,
+                        localizedService.name,
+                        localizedService.categoryName
+                    ),
+                    images = imageByProjectId[project.id].orEmpty().map { image ->
+                        PortfolioImageResponse(image.id, publicUrl(image.storageKey), image.contentType, image.displayOrder)
+                    }
+                )
+            }
+            val reviewSummary = reviewSummaryByProfessionalId[userId]
             CustomerOfferProfessionalResponse(
                 id = userId,
                 businessName = profile.businessName,
                 serviceArea = profile.serviceArea,
                 experienceYears = profile.experienceYears,
                 about = profile.about,
-                portfolioImageUrl = thumbnailByProfessionalId[userId]?.let(::publicUrl)
+                portfolioImageUrl = thumbnailByProfessionalId[userId]?.let(::publicUrl),
+                businessVerified = userId in verifiedProfessionalIds,
+                offeredServices = offeringsByProfessionalId[userId].orEmpty().map { offering ->
+                    val service = checkNotNull(localizedServices[offering.service.id])
+                    ProfessionalServiceOptionResponse(service.id, service.name, service.categoryName)
+                },
+                portfolio = professionalProjects,
+                averageRating = reviewSummary?.averageRating,
+                reviewCount = reviewSummary?.reviewCount ?: 0
             )
         }
     }
@@ -347,8 +408,17 @@ class CustomerRequestQueryService(
         const val MinimumDescriptionLength = 20
         const val MaximumDescriptionLength = 4000
         val MoneyValuePattern = Regex("""^(\d+(?:\.\d+)?)\s+([A-Z]{3})$""")
-        val ActiveStatuses = setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+        val ActiveStatuses = setOf(
+            CustomerRequestStatus.PUBLISHED,
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED
+        )
         val CompletedStatuses = setOf(CustomerRequestStatus.COMPLETED)
+        val AcceptedRequestStatuses = setOf(
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
+            CustomerRequestStatus.COMPLETED
+        )
         val VisibleCustomerOfferStatuses = setOf(
             ProfessionalOfferStatus.SUBMITTED,
             ProfessionalOfferStatus.ACCEPTED,
@@ -366,8 +436,13 @@ private val CustomerRequestFilter.statuses: Set<CustomerRequestStatus>
         CustomerRequestFilter.ALL -> setOf(
             CustomerRequestStatus.PUBLISHED,
             CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
             CustomerRequestStatus.COMPLETED
         )
-        CustomerRequestFilter.ACTIVE -> setOf(CustomerRequestStatus.PUBLISHED, CustomerRequestStatus.HIRED)
+        CustomerRequestFilter.ACTIVE -> setOf(
+            CustomerRequestStatus.PUBLISHED,
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED
+        )
         CustomerRequestFilter.COMPLETED -> setOf(CustomerRequestStatus.COMPLETED)
     }

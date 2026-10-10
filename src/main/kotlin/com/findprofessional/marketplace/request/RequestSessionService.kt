@@ -13,6 +13,9 @@ import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.service.MarketplaceServiceRepository
 import com.findprofessional.marketplace.service.ServiceAliasRepository
 import com.findprofessional.marketplace.user.CustomerAuthorizationService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.LocalizedTextService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.http.HttpStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -34,7 +37,10 @@ class RequestSessionService(
     private val aiRequirementService: AiRequirementService,
     private val aiValidator: AiResponseValidator,
     private val authorization: CustomerAuthorizationService,
-    private val inputProperties: RequestInputProperties
+    private val inputProperties: RequestInputProperties,
+    private val localization: CatalogLocalizationService,
+    private val localeResolver: RequestLocaleResolver,
+    private val text: LocalizedTextService
 ) {
     @Transactional
     fun start(userId: UUID, request: StartRequestSessionRequest): RequestSessionResponse {
@@ -45,6 +51,7 @@ class RequestSessionService(
         if (!category.active) throw notFound("Service category was not found", "CATEGORY_NOT_FOUND")
 
         val selectedService = request.serviceId?.let { findService(category.id, it) }
+        val requestLocale = localeResolver.current()
         val session = sessions.save(
             RequestSession(
                 customerId = userId,
@@ -54,14 +61,17 @@ class RequestSessionService(
                     RequestSessionStatus.NEEDS_DESCRIPTION
                 } else {
                     RequestSessionStatus.COLLECTING_ANSWERS
-                }
+                },
+                locale = requestLocale
             )
         )
         addMessage(
             session,
             MessageSender.ASSISTANT,
-            selectedService?.let { "Let's create your ${it.name.lowercase()} request." }
-                ?: "Tell me what you need and I will help structure the request."
+            selectedService?.let {
+                val name = localization.services(listOf(it), requestLocale).single().name.lowercase()
+                text.get("request.start.service", requestLocale, name)
+            } ?: text.get("request.start.description", requestLocale)
         )
         if (selectedService != null) advance(session)
         return response(session)
@@ -249,6 +259,7 @@ class RequestSessionService(
     }
 
     private fun response(session: RequestSession): RequestSessionResponse {
+        localeResolver.respondWith(session.locale)
         val sessionSuggestions = suggestions.findAllBySessionIdOrderByRankAsc(session.id)
         val availableServices = if (session.status == RequestSessionStatus.NEEDS_SERVICE) {
             selectableServices(session, sessionSuggestions)
@@ -260,8 +271,8 @@ class RequestSessionService(
         return RequestSessionResponse(
             id = session.id,
             status = session.status,
-            category = session.category.toContext(),
-            service = session.service?.toContext(),
+            category = localizedCategoryContext(session),
+            service = localizedServiceContext(session),
             messages = messages.findAllBySessionIdOrderBySequenceNumberAsc(session.id).map {
                 RequestMessageResponse(
                     sender = it.sender,
@@ -276,8 +287,8 @@ class RequestSessionService(
             },
             currentStep = currentStep(session, availableServices),
             match = sessionSuggestions.firstOrNull { it.selected }
-                ?.toResponse()
-                ?: sessionSuggestions.firstOrNull()?.toResponse(),
+                ?.toResponse(session.locale)
+                ?: sessionSuggestions.firstOrNull()?.toResponse(session.locale),
             version = session.version
         )
     }
@@ -289,38 +300,39 @@ class RequestSessionService(
         RequestSessionStatus.NEEDS_DESCRIPTION -> RequestStepResponse(
             type = RequestStepType.DESCRIPTION,
             questionKey = InitialDescriptionKey,
-            title = "What do you need help with in ${session.category.name}?",
-            helperText = "Describe the result you want. You do not need to know the professional terminology.",
+            title = text.get("request.step.description.title", session.locale, localizedCategoryContext(session).name),
+            helperText = text.get("request.step.description.helper", session.locale),
             answerType = QuestionType.TEXT
         )
         RequestSessionStatus.NEEDS_SERVICE -> RequestStepResponse(
             type = RequestStepType.SERVICE_SELECTION,
             questionKey = ServiceSelectionKey,
-            title = "Which service is the closest match?",
-            helperText = "Choose the best match. You can refine the details in the next steps.",
+            title = text.get("request.step.service.title", session.locale),
+            helperText = text.get("request.step.service.helper", session.locale),
             answerType = QuestionType.SINGLE_CHOICE,
-            options = availableServices.map {
+            options = localization.services(availableServices, session.locale).map {
                 RequestOptionResponse(
                     it.id.toString(),
-                    if (it.code == GeneralHelpServiceCode) OtherServiceLabel else it.name,
+                    if (it.code == GeneralHelpServiceCode) text.get("request.step.service.other", session.locale) else it.name,
                     it.shortDescription
                 )
             }
         )
-        RequestSessionStatus.COLLECTING_ANSWERS -> checkNotNull(session.currentQuestion).toStep()
+        RequestSessionStatus.COLLECTING_ANSWERS -> checkNotNull(session.currentQuestion).toStep(session.locale)
         RequestSessionStatus.READY_FOR_REVIEW,
         RequestSessionStatus.CONFIRMED -> RequestStepResponse(
             type = RequestStepType.SUMMARY,
             title = if (session.status == RequestSessionStatus.CONFIRMED) {
-                "Request published"
+                text.get("request.step.published", session.locale)
             } else {
-                "Review your request"
+                text.get("request.step.review", session.locale)
             }
         )
     }
 
-    private fun answerLabel(question: ServiceQuestion, value: String): String =
-        question.displayAnswer(value)
+    private fun answerLabel(question: ServiceQuestion, value: String, locale: String): String =
+        localization.question(question, locale).options
+            .firstOrNull { it.value == value }?.label ?: question.displayAnswer(value)
 
     private fun saveAnswerTranscript(
         session: RequestSession,
@@ -333,9 +345,14 @@ class RequestSessionService(
                 MessageSender.ASSISTANT
             ).isEmpty
         ) {
-            addMessage(session, MessageSender.ASSISTANT, question.prompt, question.key)
+            addMessage(
+                session,
+                MessageSender.ASSISTANT,
+                localization.question(question, session.locale).prompt,
+                question.key
+            )
         }
-        val displayedAnswer = answerLabel(question, normalizedValue)
+        val displayedAnswer = answerLabel(question, normalizedValue, session.locale)
         val existingUserMessage = messages.findBySessionIdAndQuestionKeyAndSender(
             session.id,
             question.key,
@@ -481,11 +498,13 @@ class RequestSessionService(
         )
     }
 
-    private fun ServiceQuestion.toStep() = RequestStepResponse(
+    private fun ServiceQuestion.toStep(locale: String): RequestStepResponse {
+        val translated = localization.question(this, locale)
+        return RequestStepResponse(
         type = RequestStepType.QUESTION,
         questionKey = key,
-        title = prompt,
-        helperText = helperText,
+        title = translated.prompt,
+        helperText = translated.helperText,
         answerType = type,
         unit = unit,
         supportedCurrencies = if (type == QuestionType.MONEY) {
@@ -493,17 +512,23 @@ class RequestSessionService(
         } else {
             emptyList()
         },
-        options = options.map { RequestOptionResponse(it.value, it.label, it.description) }
-    )
+        options = translated.options
+        )
+    }
 
-    private fun com.findprofessional.marketplace.category.ServiceCategory.toContext() =
-        RequestContextResponse(id, code, name)
+    private fun localizedCategoryContext(session: RequestSession): RequestContextResponse {
+        val category = localization.categories(listOf(session.category), session.locale).single()
+        return RequestContextResponse(category.id, category.code, category.name)
+    }
 
-    private fun MarketplaceService.toContext() = RequestContextResponse(id, code, name)
+    private fun localizedServiceContext(session: RequestSession): RequestContextResponse? = session.service?.let {
+        val service = localization.services(listOf(it), session.locale).single()
+        RequestContextResponse(service.id, service.code, service.name)
+    }
 
-    private fun RequestServiceSuggestion.toResponse() = RequestMatchResponse(
+    private fun RequestServiceSuggestion.toResponse(locale: String) = RequestMatchResponse(
         serviceCode = service.code,
-        serviceName = service.name,
+        serviceName = localization.services(listOf(service), locale).single().name,
         confidence = confidence,
         source = source,
         score = score,
@@ -518,7 +543,6 @@ class RequestSessionService(
         const val InitialDescriptionKey = "initial_description"
         const val ServiceSelectionKey = "service_selection"
         const val GeneralHelpServiceCode = "GENERAL_HELP"
-        const val OtherServiceLabel = "Other / Not listed"
         const val TaskDetailsQuestionKey = "task_details"
         const val MaxSuggestions = 3
         const val AiSuggestionScore = 30

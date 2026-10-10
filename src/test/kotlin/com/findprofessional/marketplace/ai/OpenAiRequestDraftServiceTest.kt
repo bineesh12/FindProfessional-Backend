@@ -20,6 +20,7 @@ import org.springframework.web.client.RestClientResponseException
 class OpenAiRequestDraftServiceTest {
     private val objectMapper = jacksonObjectMapper()
     private val input = RequestDraftInput(
+        languageTag = "sv",
         categoryName = "Home",
         serviceName = "Appliance repair",
         customerDescription = "My washing machine leaks",
@@ -50,6 +51,7 @@ class OpenAiRequestDraftServiceTest {
             .andExpect(header("Authorization", "Bearer test-key"))
             .andExpect(jsonPath("$.store").value(false))
             .andExpect(jsonPath("$.model").value("gpt-5.6-luna"))
+            .andExpect(jsonPath("$.input").value(org.hamcrest.Matchers.containsString("\"languageTag\":\"sv\"")))
             .andExpect(jsonPath("$.text.format.type").value("json_schema"))
             .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON))
 

@@ -12,6 +12,9 @@ import com.findprofessional.marketplace.request.RequestLocationKind
 import com.findprofessional.marketplace.request.RequestLocationRepository
 import com.findprofessional.marketplace.request.RequestAnswerRepository
 import com.findprofessional.marketplace.user.UserAccountRepository
+import com.findprofessional.marketplace.subscription.ProfessionalSubscriptionService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.http.HttpStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -33,7 +36,10 @@ class ProfessionalOpportunityService(
     private val offers: ProfessionalOfferRepository,
     private val declines: ProfessionalOpportunityDeclineRepository,
     private val answers: RequestAnswerRepository,
-    private val users: UserAccountRepository
+    private val users: UserAccountRepository,
+    private val subscriptions: ProfessionalSubscriptionService,
+    private val localization: CatalogLocalizationService,
+    private val localeResolver: RequestLocaleResolver
 ) {
     @Transactional(readOnly = true)
     fun getOpportunities(userId: UUID): ProfessionalOpportunitiesResponse {
@@ -41,7 +47,8 @@ class ProfessionalOpportunityService(
         val serviceIds = offerings.findAllByProfessionalUserIdOrderByDisplayOrderAsc(userId)
             .map { it.service.id }
             .distinct()
-        if (serviceIds.isEmpty()) return ProfessionalOpportunitiesResponse(0, emptyList())
+        val subscription = subscriptions.getStatus(userId)
+        if (serviceIds.isEmpty()) return ProfessionalOpportunitiesResponse(0, emptyList(), subscription)
 
         val candidates = requests.findProfessionalOpportunities(
             CustomerRequestStatus.PUBLISHED,
@@ -75,15 +82,18 @@ class ProfessionalOpportunityService(
                 matches.map { it.request.id }
             ).associateBy { it.request.id }
         }
+        val locale = localeResolver.current()
         return ProfessionalOpportunitiesResponse(
             totalCount = eligibleCandidates.size.toLong(),
             opportunities = matches.map { candidate ->
                 candidate.request.toResponse(
                     candidate.location?.toResponse(),
                     candidate.distanceKm,
-                    offerByRequestId[candidate.request.id]
+                    offerByRequestId[candidate.request.id],
+                    locale = locale
                 )
-            }
+            },
+            subscription = subscription
         )
     }
 
@@ -96,6 +106,7 @@ class ProfessionalOpportunityService(
             .groupBy { it.request.id }
             .mapValues { (_, requestLocations) -> requestLocations.preferredLocation() }
         val profile = profiles.findById(userId).orElse(null)
+        val locale = localeResolver.current()
         return ProfessionalOpportunitiesResponse(
             totalCount = professionalOffers.size.toLong(),
             opportunities = professionalOffers.map { offer ->
@@ -103,13 +114,14 @@ class ProfessionalOpportunityService(
                 offer.request.toResponse(
                     location = location?.toResponse(),
                     distanceKm = profile.distanceTo(location),
-                    offer = offer
+                    offer = offer,
+                    locale = locale
                 )
             }
         )
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun getOpportunity(userId: UUID, requestId: UUID): ProfessionalOpportunityResponse {
         authorization.requireProfessional(userId)
         val request = requests.findById(requestId).orElseThrow {
@@ -138,28 +150,33 @@ class ProfessionalOpportunityService(
                 HttpStatus.FORBIDDEN
             )
         }
+        val currentOffer = offers.findByProfessionalUserIdAndRequestId(userId, requestId).orElse(null)
+        if (currentOffer == null) subscriptions.registerOpportunityView(userId, request)
         val customer = users.findById(request.customerId).orElseThrow {
             ProfessionalOpportunityException("Customer was not found", "CUSTOMER_NOT_FOUND", HttpStatus.NOT_FOUND)
         }
+        val locale = localeResolver.current()
         val requirements = requestAnswers
             .filterNot { it.question.key in LocationQuestionKeys }
             .map { answer ->
+                val translated = localization.question(answer.question, locale)
                 OpportunityRequirementResponse(
                     key = answer.question.key,
-                    label = answer.question.prompt,
-                    value = answer.question.options.firstOrNull { it.value == answer.value }?.label ?: answer.value,
+                    label = translated.prompt,
+                    value = translated.options.firstOrNull { it.value == answer.value }?.label ?: answer.value,
                     type = answer.question.type
                 )
             }
         return request.toResponse(
             location = location,
             distanceKm = distance,
-            offer = offers.findByProfessionalUserIdAndRequestId(userId, requestId).orElse(null),
+            offer = currentOffer,
             customer = OpportunityCustomerResponse(
                 displayName = customer.displayName.trim().ifBlank { "Customer" },
                 verified = customer.phoneVerified || customer.googleSubject != null
             ),
-            requirements = requirements
+            requirements = requirements,
+            locale = locale
         )
     }
 
@@ -173,13 +190,17 @@ class ProfessionalOpportunityService(
         distanceKm: Double?,
         offer: ProfessionalOffer?,
         customer: OpportunityCustomerResponse? = null,
-        requirements: List<OpportunityRequirementResponse> = emptyList()
-    ) = ProfessionalOpportunityResponse(
+        requirements: List<OpportunityRequirementResponse> = emptyList(),
+        locale: String
+    ): ProfessionalOpportunityResponse {
+        val localizedService = localization.services(listOf(service), locale).single()
+        return ProfessionalOpportunityResponse(
         id = id,
         title = title,
         description = description,
-        serviceName = service.name,
-        categoryName = category.name,
+        serviceName = localizedService.name,
+        categoryName = localizedService.categoryName,
+        requestStatus = status,
         location = location,
         distanceKm = distanceKm?.let { round(it * 10.0) / 10.0 },
         publishedAt = createdAt,
@@ -190,7 +211,8 @@ class ProfessionalOpportunityService(
         offer = offer?.toResponse(),
         customer = customer,
         requirements = requirements
-    )
+        )
+    }
 
     private fun RequestLocation.toResponse() = OpportunityLocationResponse(municipality, postalCode)
 

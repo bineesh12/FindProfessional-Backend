@@ -6,6 +6,7 @@ import com.findprofessional.marketplace.professional.ProfessionalProfileExceptio
 import com.findprofessional.marketplace.matching.ProfessionalOpportunityException
 import com.findprofessional.marketplace.conversation.ConversationException
 import com.findprofessional.marketplace.notification.NotificationException
+import com.findprofessional.marketplace.subscription.SubscriptionException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -19,6 +20,11 @@ data class ApiError(
 
 @RestControllerAdvice
 class ApiExceptionHandler {
+    @ExceptionHandler(SubscriptionException::class)
+    fun handleSubscriptionException(exception: SubscriptionException): ResponseEntity<ApiError> =
+        ResponseEntity.status(exception.status)
+            .body(ApiError(code = exception.code, message = exception.message))
+
     @ExceptionHandler(NotificationException::class)
     fun handleNotificationException(exception: NotificationException): ResponseEntity<ApiError> =
         ResponseEntity.status(exception.status)

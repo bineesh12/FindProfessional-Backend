@@ -103,4 +103,25 @@ class UserServiceTest {
             service.selectRole(userId, SelectRoleRequest(RoleSelection.PROFESSIONAL))
         }
     }
+
+    @Test
+    fun `locale update normalizes a regional language tag`() {
+        val user = UserAccount(displayName = "User")
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        `when`(users.save(user)).thenReturn(user)
+
+        val response = service.updateLocale(user.id, UpdateLocaleRequest("sv-SE"))
+
+        assertEquals("sv", response.languageTag)
+        assertEquals("sv", user.preferredLocale)
+    }
+
+    @Test
+    fun `unsupported locale falls back to English`() {
+        val user = UserAccount(displayName = "User", preferredLocale = "sv")
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        `when`(users.save(user)).thenReturn(user)
+
+        assertEquals("en", service.updateLocale(user.id, UpdateLocaleRequest("ja-JP")).languageTag)
+    }
 }

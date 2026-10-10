@@ -61,6 +61,9 @@ class RequestSession(
     @Column(name = "next_message_sequence", nullable = false)
     var nextMessageSequence: Int = 1,
 
+    @Column(name = "locale", nullable = false, length = 10)
+    var locale: String = "en",
+
     @Version
     var version: Long = 0,
 

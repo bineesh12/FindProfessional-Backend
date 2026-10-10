@@ -8,6 +8,7 @@ import com.findprofessional.marketplace.request.CustomerRequest
 import com.findprofessional.marketplace.request.CustomerRequestRepository
 import com.findprofessional.marketplace.request.CustomerRequestStatus
 import com.findprofessional.marketplace.user.UserAccountRepository
+import com.findprofessional.marketplace.user.UserBlockRepository
 import com.findprofessional.marketplace.notification.CreateNotification
 import com.findprofessional.marketplace.notification.MarketplaceNotificationType
 import com.findprofessional.marketplace.notification.NotificationService
@@ -28,7 +29,8 @@ class ConversationService(
     private val users: UserAccountRepository,
     private val professionalProfiles: ProfessionalProfileRepository,
     private val realtime: ConversationSocketHandler,
-    private val notifications: NotificationService
+    private val notifications: NotificationService,
+    private val blocks: UserBlockRepository
 ) {
     @Transactional
     fun open(userId: UUID, input: OpenConversationRequest): ConversationSummaryResponse {
@@ -89,6 +91,10 @@ class ConversationService(
         val conversation = requireConversation(userId, conversationId)
         val offer = offers.findByProfessionalUserIdAndRequestId(conversation.professionalId, conversation.request.id)
             .orElseThrow { forbidden() }
+        val otherUserId = if (userId == conversation.customerId) conversation.professionalId else conversation.customerId
+        if (blocks.existsBetween(userId, otherUserId)) {
+            throw ConversationException("Messages are blocked", "USER_BLOCKED", HttpStatus.CONFLICT)
+        }
         if (!conversation.canSend(offer)) {
             throw ConversationException(
                 "Messages cannot be sent for this offer",
@@ -113,7 +119,7 @@ class ConversationService(
             CreateNotification(
                 userId = if (userId == conversation.customerId) conversation.professionalId else conversation.customerId,
                 type = MarketplaceNotificationType.MESSAGE_RECEIVED,
-                title = "New message",
+                titleKey = "notification.message.title",
                 body = content.replace('\n', ' ').take(MessagePreviewLength),
                 requestId = conversation.request.id,
                 conversationId = conversation.id,
@@ -150,6 +156,7 @@ class ConversationService(
             otherUser.displayName
         }
         val lastMessage = messages.findTopByConversationIdOrderByCreatedAtDescIdDesc(id).orElse(null)
+        val blocked = blocks.existsBetween(userId, otherId)
         return ConversationSummaryResponse(
             id = id,
             requestId = request.id,
@@ -159,13 +166,15 @@ class ConversationService(
             lastMessage = lastMessage?.content,
             lastMessageAt = lastMessage?.createdAt,
             unreadCount = messages.countByConversationIdAndSenderIdNotAndReadAtIsNull(id, userId),
-            canSendMessages = offer != null && canSend(offer)
+            canSendMessages = offer != null && canSend(offer) && !blocked,
+            blocked = blocked,
+            blockedByCurrentUser = blocks.existsByBlockerUserIdAndBlockedUserId(userId, otherId)
         )
     }
 
     private fun Conversation.canSend(offer: ProfessionalOffer): Boolean =
         offer.status == ProfessionalOfferStatus.SUBMITTED && request.status == CustomerRequestStatus.PUBLISHED ||
-            offer.status == ProfessionalOfferStatus.ACCEPTED && request.status == CustomerRequestStatus.HIRED
+            offer.status == ProfessionalOfferStatus.ACCEPTED && request.status in AcceptedConversationStatuses
 
     private fun publishAfterCommit(conversation: Conversation, message: ConversationMessageResponse) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -197,5 +206,10 @@ class ConversationService(
         const val MaximumMessageLength = 4000
         const val MessagePreviewLength = 140
         val ConversationOfferStatuses = setOf(ProfessionalOfferStatus.SUBMITTED, ProfessionalOfferStatus.ACCEPTED)
+        val AcceptedConversationStatuses = setOf(
+            CustomerRequestStatus.HIRED,
+            CustomerRequestStatus.WORK_FINISHED,
+            CustomerRequestStatus.COMPLETED
+        )
     }
 }

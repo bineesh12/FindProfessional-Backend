@@ -9,6 +9,9 @@ import com.findprofessional.marketplace.matching.OpportunityNotificationMatcher
 import com.findprofessional.marketplace.notification.CreateNotification
 import com.findprofessional.marketplace.notification.MarketplaceNotificationType
 import com.findprofessional.marketplace.notification.NotificationService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.LocalizedTextService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,7 +27,10 @@ class RequestSummaryService(
     private val aiDraftService: AiRequestDraftService,
     private val locationService: RequestLocationService,
     private val opportunityMatcher: OpportunityNotificationMatcher,
-    private val notifications: NotificationService
+    private val notifications: NotificationService,
+    private val localization: CatalogLocalizationService,
+    private val text: LocalizedTextService,
+    private val localeResolver: RequestLocaleResolver
 ) {
     @Transactional
     fun summary(userId: UUID, sessionId: UUID): RequestSummaryResponse {
@@ -82,8 +88,8 @@ class RequestSummaryService(
                 CreateNotification(
                     userId = professionalId,
                     type = MarketplaceNotificationType.NEW_OPPORTUNITY,
-                    title = "New opportunity",
-                    body = "A new ${service.name} request matches your services",
+                    titleKey = "notification.request.created.title",
+                    bodyKey = "notification.request.created.body",
                     requestId = request.id
                 )
             )
@@ -96,23 +102,28 @@ class RequestSummaryService(
     }
 
     private fun buildSummary(session: RequestSession): RequestSummaryResponse {
+        localeResolver.respondWith(session.locale)
         val service = checkNotNull(session.service)
         val answerMap = answers.findAllBySessionId(session.id).associateBy { it.question.key }
         val details = questionEngine.allQuestions(service.id).mapNotNull { question ->
             val answer = answerMap[question.key] ?: return@mapNotNull null
+            val translated = localization.question(question, session.locale)
             RequestSummaryDetailResponse(
                 key = question.key,
-                label = question.prompt,
-                value = question.displayAnswer(answer.value)
+                label = translated.prompt,
+                value = translated.options.firstOrNull { it.value == answer.value }?.label
+                    ?: question.displayAnswer(answer.value)
             )
         }
         ensureDraft(session, details)
+        val categoryName = localization.categories(listOf(session.category), session.locale).single().name
+        val serviceName = localization.services(listOf(service), session.locale).single().name
         return RequestSummaryResponse(
             sessionId = session.id,
             title = checkNotNull(session.draftTitle),
             description = checkNotNull(session.draftDescription),
-            categoryName = session.category.name,
-            serviceName = service.name,
+            categoryName = categoryName,
+            serviceName = serviceName,
             details = details
         )
     }
@@ -127,8 +138,9 @@ class RequestSummaryService(
         val generated = runCatching {
             aiDraftService.generateDraft(
                 RequestDraftInput(
-                    categoryName = session.category.name,
-                    serviceName = service.name,
+                    languageTag = session.locale,
+                    categoryName = localization.categories(listOf(session.category), session.locale).single().name,
+                    serviceName = localization.services(listOf(service), session.locale).single().name,
                     customerDescription = session.initialDescription,
                     answers = details.map { RequestDraftAnswer(it.label, it.value) }
                 )
@@ -154,7 +166,8 @@ class RequestSummaryService(
             ?.let(::append)
         if (details.isNotEmpty()) {
             if (isNotEmpty()) append("\n\n")
-            append("Project details:\n")
+            append(text.get("request.summary.details", session.locale))
+            append('\n')
             details.forEachIndexed { index, detail ->
                 append("- ")
                 append(detail.label.trim().removeSuffix("?"))

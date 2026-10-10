@@ -8,12 +8,18 @@ import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant
 import java.util.UUID
+import com.findprofessional.marketplace.localization.LocalizedTextService
+import com.findprofessional.marketplace.user.UserAccountRepository
 
 data class CreateNotification(
     val userId: UUID,
     val type: MarketplaceNotificationType,
-    val title: String,
-    val body: String,
+    val title: String? = null,
+    val body: String? = null,
+    val titleKey: String? = null,
+    val bodyKey: String? = null,
+    val titleArguments: List<Any> = emptyList(),
+    val bodyArguments: List<Any> = emptyList(),
     val requestId: UUID? = null,
     val offerId: UUID? = null,
     val conversationId: UUID? = null,
@@ -24,7 +30,9 @@ data class CreateNotification(
 class NotificationService(
     private val notifications: MarketplaceNotificationRepository,
     private val devices: NotificationDeviceRepository,
-    private val push: PushNotificationGateway
+    private val push: PushNotificationGateway,
+    private val users: UserAccountRepository,
+    private val text: LocalizedTextService
 ) {
     @Transactional(readOnly = true)
     fun list(userId: UUID, limit: Int): NotificationListResponse {
@@ -82,12 +90,17 @@ class NotificationService(
     }
 
     fun create(input: CreateNotification): MarketplaceNotification {
+        val locale = users.findById(input.userId).map { it.preferredLocale }.orElse("en")
+        val title = input.titleKey?.let { text.get(it, locale, *input.titleArguments.toTypedArray()) }
+            ?: requireNotNull(input.title) { "Notification title or titleKey is required" }
+        val body = input.bodyKey?.let { text.get(it, locale, *input.bodyArguments.toTypedArray()) }
+            ?: requireNotNull(input.body) { "Notification body or bodyKey is required" }
         val saved = notifications.save(
             MarketplaceNotification(
                 userId = input.userId,
                 type = input.type,
-                title = input.title.take(120),
-                body = input.body.take(500),
+                title = title.take(120),
+                body = body.take(500),
                 requestId = input.requestId,
                 offerId = input.offerId,
                 conversationId = input.conversationId,

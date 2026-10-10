@@ -72,6 +72,19 @@ class UserControllerTest {
         assertEquals(response, actual)
     }
 
+    @Test
+    fun `locale update uses authenticated jwt subject`() {
+        val userId = UUID.randomUUID()
+        val service = mock(UserService::class.java)
+        val request = UpdateLocaleRequest("sv-SE")
+        val response = LocaleResponse("sv")
+        `when`(service.updateLocale(userId, request)).thenReturn(response)
+
+        val actual = controller(service).updateLocale(jwt(userId), request)
+
+        assertEquals(response, actual)
+    }
+
     private fun userResponse(userId: UUID) = UserResponse(
         id = userId,
         email = null,
