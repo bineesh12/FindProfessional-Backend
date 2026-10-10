@@ -17,6 +17,8 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.util.Optional
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
 
 class ProfessionalProfileServiceTest {
     private val profiles = mock(ProfessionalProfileRepository::class.java)
@@ -25,10 +27,13 @@ class ProfessionalProfileServiceTest {
     private val portfolio = mock(ProfessionalPortfolioService::class.java)
     private val authorization = mock(ProfessionalAuthorizationService::class.java)
     private val locations = mock(RequestLocationService::class.java)
-    private val service = ProfessionalProfileService(profiles, services, offerings, portfolio, authorization, locations)
+    private val service = ProfessionalProfileService(
+        profiles, services, offerings, portfolio, authorization, locations,
+        testCatalogLocalization(), testLocaleResolver()
+    )
 
     init {
-        `when`(locations.resolvePostcode(anyString())).thenReturn(
+        `when`(locations.resolvePostcode(anyString(), anyString())).thenReturn(
             PostcodeCoordinate(
                 countryCode = "se",
                 postalCode = "418 33",

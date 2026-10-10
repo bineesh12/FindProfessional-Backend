@@ -19,6 +19,9 @@ class PostcodeCoordinate(
     @Column(name = "postal_code", nullable = false)
     val postalCode: String,
 
+    @Column
+    var municipality: String? = null,
+
     @Column(nullable = false)
     val latitude: Double,
 

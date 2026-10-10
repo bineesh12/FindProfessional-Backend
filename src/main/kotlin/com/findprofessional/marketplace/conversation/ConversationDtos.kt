@@ -25,7 +25,9 @@ data class ConversationSummaryResponse(
     val lastMessage: String?,
     val lastMessageAt: Instant?,
     val unreadCount: Long,
-    val canSendMessages: Boolean
+    val canSendMessages: Boolean,
+    val blocked: Boolean = false,
+    val blockedByCurrentUser: Boolean = false
 )
 
 data class ConversationMessageResponse(

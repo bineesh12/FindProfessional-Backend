@@ -4,11 +4,14 @@ import com.findprofessional.marketplace.category.ServiceCategory
 import com.findprofessional.marketplace.professional.ProfessionalAuthorizationService
 import com.findprofessional.marketplace.professional.ProfessionalServiceOfferingRepository
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
+import com.findprofessional.marketplace.professional.ProfessionalVerificationService
 import com.findprofessional.marketplace.request.CustomerRequest
 import com.findprofessional.marketplace.request.CustomerRequestRepository
 import com.findprofessional.marketplace.request.RequestSession
 import com.findprofessional.marketplace.request.RequestSessionStatus
 import com.findprofessional.marketplace.notification.NotificationService
+import com.findprofessional.marketplace.notification.CreateNotification
+import com.findprofessional.marketplace.notification.MarketplaceNotificationType
 import com.findprofessional.marketplace.service.MarketplaceService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -18,6 +21,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import java.math.BigDecimal
 import java.util.Optional
@@ -31,6 +35,7 @@ class ProfessionalOpportunityActionServiceTest {
     private val offers = mock(ProfessionalOfferRepository::class.java)
     private val attachments = mock(ProfessionalOfferAttachmentRepository::class.java)
     private val attachmentStorage = mock(ProfessionalOfferAttachmentStorage::class.java)
+    private val verification = mock(ProfessionalVerificationService::class.java)
     private val notifications = mock(NotificationService::class.java)
     private val service = ProfessionalOpportunityActionService(
         authorization,
@@ -41,6 +46,7 @@ class ProfessionalOpportunityActionServiceTest {
         attachments,
         attachmentStorage,
         PortfolioStorageProperties(),
+        verification,
         notifications
     )
 
@@ -120,6 +126,57 @@ class ProfessionalOpportunityActionServiceTest {
         assertEquals("Includes labor and materials.", response.message)
         assertEquals(5, response.estimatedDays)
         assertEquals(ProfessionalOfferStatus.SUBMITTED, response.status)
+        verify(verification).requireOfferSubmissionAllowed(professionalId)
+
+        verify(notifications).create(
+            CreateNotification(
+                userId = request.customerId,
+                type = MarketplaceNotificationType.OFFER_RECEIVED,
+                titleKey = "notification.offer.received.title",
+                bodyKey = "notification.offer.received.simple",
+                bodyArguments = listOf(request.title),
+                requestId = request.id,
+                offerId = response.id
+            )
+        )
+    }
+
+    @Test
+    fun `resubmitting an edited offer notifies the customer`() {
+        val professionalId = UUID.randomUUID()
+        val request = actionCustomerRequest(actionMarketplaceService())
+        val submitted = offer(professionalId, request, ProfessionalOfferStatus.SUBMITTED)
+        stubEligible(professionalId, request)
+        `when`(declines.existsByProfessionalUserIdAndRequestId(professionalId, request.id)).thenReturn(false)
+        `when`(offers.findByProfessionalUserIdAndRequestId(professionalId, request.id))
+            .thenReturn(Optional.of(submitted))
+        `when`(offers.save(any(ProfessionalOffer::class.java))).thenAnswer { it.arguments[0] }
+
+        service.submitOffer(
+            professionalId,
+            request.id,
+            SaveProfessionalOfferRequest(
+                amount = BigDecimal("1500"),
+                currency = "SEK",
+                message = "Updated offer with all materials.",
+                estimatedDays = 3,
+                availableStartDate = java.time.LocalDate.now().plusDays(2),
+                scopeIncluded = "Updated labor and material scope"
+            )
+        )
+
+        verify(notifications).create(
+            CreateNotification(
+                userId = request.customerId,
+                type = MarketplaceNotificationType.OFFER_RECEIVED,
+                titleKey = "notification.offer.updated.title",
+                bodyKey = "notification.offer.updated.body",
+                bodyArguments = listOf(request.title),
+                requestId = request.id,
+                offerId = submitted.id
+            )
+        )
+        verifyNoInteractions(verification)
     }
 
     @Test

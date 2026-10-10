@@ -17,6 +17,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocalizedTextService
+import com.findprofessional.marketplace.localization.testLocaleResolver
 
 class RequestSummaryServiceTest {
     private val sessionService = mock(RequestSessionService::class.java)
@@ -37,7 +40,10 @@ class RequestSummaryServiceTest {
         aiDrafts,
         locationService,
         opportunityMatcher,
-        notifications
+        notifications,
+        testCatalogLocalization(),
+        testLocalizedTextService(),
+        testLocaleResolver()
     )
 
     init {

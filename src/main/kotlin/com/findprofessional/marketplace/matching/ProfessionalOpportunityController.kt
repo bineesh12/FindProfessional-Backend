@@ -1,5 +1,7 @@
 package com.findprofessional.marketplace.matching
 
+import com.findprofessional.marketplace.request.RequestCompletionResponse
+import com.findprofessional.marketplace.request.RequestCompletionService
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -21,7 +23,8 @@ import org.springframework.web.multipart.MultipartFile
 class ProfessionalOpportunityController(
     private val service: ProfessionalOpportunityService,
     private val actions: ProfessionalOpportunityActionService,
-    private val attachments: ProfessionalOfferAttachmentService
+    private val attachments: ProfessionalOfferAttachmentService,
+    private val completion: RequestCompletionService
 ) {
     @GetMapping
     fun getOpportunities(@AuthenticationPrincipal jwt: Jwt): ProfessionalOpportunitiesResponse =
@@ -76,4 +79,10 @@ class ProfessionalOpportunityController(
         @PathVariable requestId: UUID,
         @PathVariable attachmentId: UUID
     ) = attachments.delete(UUID.fromString(jwt.subject), requestId, attachmentId)
+
+    @PostMapping("/{requestId}/work-finished")
+    fun markWorkFinished(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable requestId: UUID
+    ): RequestCompletionResponse = completion.markWorkFinished(UUID.fromString(jwt.subject), requestId)
 }

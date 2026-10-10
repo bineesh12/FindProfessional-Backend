@@ -10,11 +10,18 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
+import com.findprofessional.marketplace.user.CreateUserReportRequest
+import com.findprofessional.marketplace.user.ConversationSafetyResponse
+import com.findprofessional.marketplace.user.UserSafetyService
+import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 
 @RestController
 @RequestMapping("/api/conversations")
 class ConversationController(
-    private val service: ConversationService
+    private val service: ConversationService,
+    private val safety: UserSafetyService
 ) {
     @PostMapping
     fun open(
@@ -38,4 +45,24 @@ class ConversationController(
         @PathVariable conversationId: UUID,
         @Valid @RequestBody input: SendConversationMessageRequest
     ): ConversationMessageResponse = service.send(UUID.fromString(jwt.subject), conversationId, input)
+
+    @PostMapping("/{conversationId}/report")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun report(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable conversationId: UUID,
+        @Valid @RequestBody input: CreateUserReportRequest
+    ) = safety.report(UUID.fromString(jwt.subject), conversationId, input)
+
+    @PostMapping("/{conversationId}/block")
+    fun block(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable conversationId: UUID
+    ): ConversationSafetyResponse = safety.block(UUID.fromString(jwt.subject), conversationId)
+
+    @DeleteMapping("/{conversationId}/block")
+    fun unblock(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable conversationId: UUID
+    ): ConversationSafetyResponse = safety.unblock(UUID.fromString(jwt.subject), conversationId)
 }

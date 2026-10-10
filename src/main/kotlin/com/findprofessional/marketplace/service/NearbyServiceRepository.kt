@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 data class NearbyServiceMatch(
-    val service: MarketplaceServiceResponse,
+    val serviceId: UUID,
     val distanceKm: Double
 )
 
@@ -28,16 +28,7 @@ class NearbyServiceRepository(
         )
     ) { result, _ ->
         NearbyServiceMatch(
-            service = MarketplaceServiceResponse(
-                id = result.getObject("service_id", UUID::class.java),
-                code = result.getString("service_code"),
-                name = result.getString("service_name"),
-                shortDescription = result.getString("short_description"),
-                iconKey = result.getString("icon_key"),
-                imageUrl = result.getString("image_url"),
-                categoryId = result.getObject("category_id", UUID::class.java),
-                categoryName = result.getString("category_name")
-            ),
+            serviceId = result.getObject("service_id", UUID::class.java),
             distanceKm = result.getDouble("distance_km")
         )
     }
@@ -50,13 +41,7 @@ class NearbyServiceRepository(
             WITH candidates AS (
                 SELECT
                     service.id AS service_id,
-                    service.code AS service_code,
                     service.name AS service_name,
-                    service.short_description,
-                    service.icon_key,
-                    service.image_url,
-                    category.id AS category_id,
-                    category.name AS category_name,
                     area.service_radius_km,
                     area.local_popularity_score,
                     6371.0 * 2.0 * ASIN(LEAST(1.0, SQRT(

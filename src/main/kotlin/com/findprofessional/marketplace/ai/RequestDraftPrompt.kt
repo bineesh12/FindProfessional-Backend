@@ -8,5 +8,8 @@ internal object RequestDraftPrompt {
         to three short paragraphs in natural professional language. Start with what the customer
         wants done, then integrate the useful supplied details without repeating facts or using
         question-and-answer labels. Do not mention AI, forms, questions, or missing information.
+        Write the title and description in the language identified by languageTag. Do not translate,
+        alter, or invent proper names, addresses, identifiers, measurements, currency codes, or other
+        customer facts. If a supplied fact is ambiguous, preserve it rather than guessing.
     """
 }

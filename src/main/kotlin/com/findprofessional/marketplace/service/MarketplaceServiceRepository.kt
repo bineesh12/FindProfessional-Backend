@@ -33,6 +33,25 @@ interface MarketplaceServiceRepository : JpaRepository<MarketplaceService, UUID>
         """
     )
     fun search(@Param("query") query: String): List<MarketplaceService>
+
+    @Query(
+        """
+        SELECT DISTINCT service FROM MarketplaceService service
+        LEFT JOIN MarketplaceServiceTranslation translation
+          ON translation.entityId = service.id AND translation.locale = :locale
+        LEFT JOIN ServiceCategoryTranslation categoryTranslation
+          ON categoryTranslation.entityId = service.category.id AND categoryTranslation.locale = :locale
+        WHERE service.active = true
+          AND (
+            LOWER(COALESCE(translation.name, service.name)) LIKE :query
+            OR LOWER(COALESCE(translation.shortDescription, service.shortDescription)) LIKE :query
+            OR LOWER(COALESCE(translation.searchKeywords, service.searchKeywords)) LIKE :query
+            OR LOWER(COALESCE(categoryTranslation.name, service.category.name)) LIKE :query
+          )
+        ORDER BY service.name ASC
+        """
+    )
+    fun searchLocalized(@Param("query") query: String, @Param("locale") locale: String): List<MarketplaceService>
 }
 
 interface ServiceAliasRepository : JpaRepository<ServiceAlias, UUID> {

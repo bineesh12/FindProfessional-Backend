@@ -38,6 +38,14 @@ data class PrivacyPreferencesResponse(
     val updatedAt: Instant?
 )
 
+data class UpdateLocaleRequest(
+    @field:NotBlank
+    @field:Size(max = 35)
+    val languageTag: String
+)
+
+data class LocaleResponse(val languageTag: String)
+
 data class UserResponse(
     val id: UUID,
     val email: String?,

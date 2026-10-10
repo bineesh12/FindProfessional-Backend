@@ -3,6 +3,8 @@ package com.findprofessional.marketplace.service
 import com.findprofessional.marketplace.auth.AuthException
 import com.findprofessional.marketplace.category.ServiceCategoryRepository
 import com.findprofessional.marketplace.user.CustomerAuthorizationService
+import com.findprofessional.marketplace.localization.CatalogLocalizationService
+import com.findprofessional.marketplace.localization.RequestLocaleResolver
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,7 +16,9 @@ class ServiceCatalogService(
     private val categories: ServiceCategoryRepository,
     private val nearbyServices: NearbyServiceRepository,
     private val authorization: CustomerAuthorizationService,
-    private val properties: CatalogProperties
+    private val properties: CatalogProperties,
+    private val localization: CatalogLocalizationService,
+    private val locale: RequestLocaleResolver
 ) {
     @Transactional(readOnly = true)
     fun listNearby(
@@ -26,18 +30,26 @@ class ServiceCatalogService(
         authorization.requireCustomer(userId)
         val resolvedRadiusKm = radiusKm ?: properties.nearbyDefaultRadiusKm
         validateLocation(latitude, longitude, resolvedRadiusKm)
-        return nearbyServices.findNearby(
+        val matches = nearbyServices.findNearby(
             latitude,
             longitude,
             resolvedRadiusKm,
             properties.nearbyResultLimit
         )
-            .map { match ->
+        val servicesById = services.findAllById(matches.map { it.serviceId }).associateBy { it.id }
+        val currentLocale = locale.current()
+        val localizedById = localization.services(
+            matches.mapNotNull { servicesById[it.serviceId] },
+            currentLocale
+        ).associateBy { it.id }
+        return matches.mapNotNull { match ->
+            localizedById[match.serviceId]?.let { service ->
                 NearbyServiceResponse(
-                    service = match.service,
+                    service = service,
                     distanceKm = kotlin.math.round(match.distanceKm * 10.0) / 10.0
                 )
             }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -49,8 +61,10 @@ class ServiceCatalogService(
         if (!category.active) {
             throw AuthException("Service category was not found", "CATEGORY_NOT_FOUND", HttpStatus.NOT_FOUND)
         }
-        return services.findAllByCategoryIdAndActiveTrueOrderByNameAsc(categoryId)
-            .map(MarketplaceService::toResponse)
+        return localization.services(
+            services.findAllByCategoryIdAndActiveTrueOrderByNameAsc(categoryId),
+            locale.current()
+        )
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +78,11 @@ class ServiceCatalogService(
                 HttpStatus.BAD_REQUEST
             )
         }
-        return services.search("%${normalized.lowercase()}%").map(MarketplaceService::toResponse)
+        val currentLocale = locale.current()
+        return localization.services(
+            services.searchLocalized("%${normalized.lowercase()}%", currentLocale),
+            currentLocale
+        )
     }
 
     private fun validateLocation(latitude: Double, longitude: Double, radiusKm: Double) {

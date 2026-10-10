@@ -23,8 +23,12 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
+import org.mockito.ArgumentCaptor
 import java.util.Optional
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
+import com.findprofessional.marketplace.localization.testLocalizedTextService
 
 class RequestSessionServiceTest {
     private val sessions = mock(RequestSessionRepository::class.java)
@@ -36,6 +40,7 @@ class RequestSessionServiceTest {
     private val suggestions = mock(RequestServiceSuggestionRepository::class.java)
     private val questions = mock(QuestionEngine::class.java)
     private val authorization = mock(CustomerAuthorizationService::class.java)
+    private val localeResolver = testLocaleResolver()
     private val ai = object : AiRequirementService {
         override fun analyze(request: com.findprofessional.marketplace.ai.RequirementAnalysisRequest) =
             RequirementAnalysis()
@@ -53,7 +58,10 @@ class RequestSessionServiceTest {
         ai,
         AiResponseValidator(),
         authorization,
-        RequestInputProperties()
+        RequestInputProperties(),
+        testCatalogLocalization(),
+        localeResolver,
+        testLocalizedTextService()
     )
 
     init {
@@ -72,6 +80,27 @@ class RequestSessionServiceTest {
 
         assertEquals(RequestSessionStatus.NEEDS_DESCRIPTION, response.status)
         assertEquals(RequestStepType.DESCRIPTION, response.currentStep.type)
+        val saved = ArgumentCaptor.forClass(RequestSession::class.java)
+        verify(sessions).save(saved.capture())
+        assertEquals("en", saved.value.locale)
+    }
+
+    @Test
+    fun `new request session persists normalized request language`() {
+        val userId = UUID.randomUUID()
+        val category = category()
+        `when`(localeResolver.current()).thenReturn("sv")
+        `when`(categories.findById(category.id)).thenReturn(Optional.of(category))
+        `when`(messages.findAllBySessionIdOrderBySequenceNumberAsc(anyValue())).thenReturn(emptyList())
+
+        try {
+            service.start(userId, StartRequestSessionRequest(category.id))
+            val saved = ArgumentCaptor.forClass(RequestSession::class.java)
+            verify(sessions).save(saved.capture())
+            assertEquals("sv", saved.value.locale)
+        } finally {
+            `when`(localeResolver.current()).thenReturn("en")
+        }
     }
 
     @Test

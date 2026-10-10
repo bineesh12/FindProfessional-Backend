@@ -59,4 +59,10 @@ class UserController(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: SelectRoleRequest
     ): UserResponse = userService.selectRole(UUID.fromString(jwt.subject), request)
+
+    @PutMapping("/locale")
+    fun updateLocale(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: UpdateLocaleRequest
+    ): LocaleResponse = userService.updateLocale(UUID.fromString(jwt.subject), request)
 }

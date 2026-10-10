@@ -8,15 +8,14 @@ import org.slf4j.LoggerFactory
 class RequestLocationService(
     private val postcodeCoordinates: PostcodeCoordinateRepository,
     private val requestLocations: RequestLocationRepository,
-    private val geocodingClient: PostcodeGeocodingClient,
-    private val properties: PostcodeResolverProperties
+    private val geocodingClient: PostcodeGeocodingClient
 ) {
     fun saveResolvedLocations(request: CustomerRequest, answers: Map<String, String>) {
         locationDefinitions.mapNotNull { definition ->
             val municipality = answers[definition.municipalityKey]?.trim() ?: return@mapNotNull null
             val postalCode = answers[definition.postcodeKey]?.trim()
                 ?: throw RequestException("A postcode is required for the request location", "POSTCODE_REQUIRED")
-            val coordinates = resolvePostcode(postalCode)
+            val coordinates = resolvePostcode(municipality, postalCode)
             RequestLocation(
                 request = request,
                 kind = definition.kind,
@@ -28,13 +27,22 @@ class RequestLocationService(
         }.takeIf { it.isNotEmpty() }?.let(requestLocations::saveAll)
     }
 
-    fun resolvePostcode(postalCode: String): PostcodeCoordinate {
-        val countryCode = properties.countryCode.lowercase()
-        return postcodeCoordinates.findByCountryCodeAndPostalCode(countryCode, postalCode).orElseGet {
+    fun resolvePostcode(municipality: String, postalCode: String): PostcodeCoordinate {
+        val normalizedMunicipality = municipality.trim()
+        val normalizedPostalCode = postalCode.trim()
+        return postcodeCoordinates.findByMunicipalityIgnoreCaseAndPostalCode(
+            normalizedMunicipality,
+            normalizedPostalCode
+        ).orElseGet {
             val resolved = try {
-                geocodingClient.resolve(countryCode, postalCode)
+                geocodingClient.resolve(normalizedMunicipality, normalizedPostalCode)
             } catch (exception: Exception) {
-                logger.warn("Postcode resolver failed for country={}", countryCode, exception)
+                logger.warn(
+                    "Postcode resolver failed for municipality={} postcode={}",
+                    normalizedMunicipality,
+                    normalizedPostalCode,
+                    exception
+                )
                 throw RequestException(
                     "Location lookup is temporarily unavailable. Please try again.",
                     "LOCATION_RESOLVER_UNAVAILABLE",
@@ -44,15 +52,28 @@ class RequestLocationService(
                 "The postcode could not be located. Check it and try again.",
                 "POSTCODE_NOT_FOUND"
             )
-            postcodeCoordinates.save(
-                PostcodeCoordinate(
-                    countryCode = countryCode,
-                    postalCode = postalCode,
-                    latitude = resolved.latitude,
-                    longitude = resolved.longitude,
-                    source = resolved.source
+            postcodeCoordinates.findByCountryCodeAndPostalCode(
+                resolved.countryCode,
+                normalizedPostalCode
+            ).map { existing ->
+                if (existing.municipality.isNullOrBlank()) {
+                    existing.municipality = normalizedMunicipality
+                    postcodeCoordinates.save(existing)
+                } else {
+                    existing
+                }
+            }.orElseGet {
+                postcodeCoordinates.save(
+                    PostcodeCoordinate(
+                        countryCode = resolved.countryCode,
+                        postalCode = normalizedPostalCode,
+                        municipality = normalizedMunicipality,
+                        latitude = resolved.latitude,
+                        longitude = resolved.longitude,
+                        source = resolved.source
+                    )
                 )
-            )
+            }
         }
     }
 

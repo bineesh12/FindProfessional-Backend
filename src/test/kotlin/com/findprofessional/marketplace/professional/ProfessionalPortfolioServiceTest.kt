@@ -13,6 +13,8 @@ import org.mockito.Mockito.`when`
 import org.springframework.mock.web.MockMultipartFile
 import java.util.Optional
 import java.util.UUID
+import com.findprofessional.marketplace.localization.testCatalogLocalization
+import com.findprofessional.marketplace.localization.testLocaleResolver
 
 class ProfessionalPortfolioServiceTest {
     private val projects = mock(PortfolioProjectRepository::class.java)
@@ -30,7 +32,9 @@ class ProfessionalPortfolioServiceTest {
         profiles,
         authorization,
         storage,
-        PortfolioStorageProperties(publicPath = "/uploads")
+        PortfolioStorageProperties(publicPath = "/uploads"),
+        testCatalogLocalization(),
+        testLocaleResolver()
     )
 
     @Test

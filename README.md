@@ -63,6 +63,8 @@ GOOGLE_CLIENT_IDS=<comma-separated-allowed-google-oauth-client-ids>
 OPENAI_API_KEY=<openai-api-key>
 EXPOSE_PHONE_CODE=false
 PORTFOLIO_UPLOAD_DIRECTORY=/data/uploads
+REQUIRE_PERSISTENT_UPLOAD_STORAGE=true
+PERSISTENT_UPLOAD_MOUNT_PATH=/data
 ```
 
 Paste the Firebase service account JSON into Railway as a secret variable; do
@@ -72,7 +74,10 @@ delivery. Firebase login token verification only requires
 
 Create a persistent volume mounted at `/data` so profile and portfolio images
 survive deployments. Run one backend replica while local file storage is in
-use. Configure `/actuator/health` as the service health-check path, then create
+use. Production startup fails when the configured upload directory is outside
+the required mount or is not writable, preventing a deployment from silently
+falling back to ephemeral storage. Configure `/actuator/health` as the service
+health-check path, then create
 the custom domain `api.getarbio.com`. Railway provisions TLS after the DNS
 record displayed by the dashboard is added to the domain provider.
 

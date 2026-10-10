@@ -54,8 +54,9 @@ class CustomerRequestCancellationServiceTest {
             CreateNotification(
                 userId = professionalId,
                 type = MarketplaceNotificationType.REQUEST_CANCELLED,
-                title = "Request no longer available",
-                body = fixture.request.title,
+                titleKey = "notification.request.cancelled.title",
+                bodyKey = "notification.request.cancelled.body.simple",
+                bodyArguments = listOf(fixture.request.title),
                 requestId = fixture.request.id
             )
         )

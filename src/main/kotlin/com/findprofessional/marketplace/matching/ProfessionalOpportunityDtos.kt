@@ -1,10 +1,12 @@
 package com.findprofessional.marketplace.matching
 
+import com.findprofessional.marketplace.request.CustomerRequestStatus
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 import com.findprofessional.marketplace.question.QuestionType
+import com.findprofessional.marketplace.subscription.ProfessionalSubscriptionStatusResponse
 
 enum class OpportunityMatchReason { SERVICE, LOCATION }
 
@@ -64,6 +66,7 @@ data class ProfessionalOpportunityResponse(
     val description: String,
     val serviceName: String,
     val categoryName: String,
+    val requestStatus: CustomerRequestStatus,
     val location: OpportunityLocationResponse?,
     val distanceKm: Double?,
     val publishedAt: Instant,
@@ -75,5 +78,6 @@ data class ProfessionalOpportunityResponse(
 
 data class ProfessionalOpportunitiesResponse(
     val totalCount: Long,
-    val opportunities: List<ProfessionalOpportunityResponse>
+    val opportunities: List<ProfessionalOpportunityResponse>,
+    val subscription: ProfessionalSubscriptionStatusResponse? = null
 )

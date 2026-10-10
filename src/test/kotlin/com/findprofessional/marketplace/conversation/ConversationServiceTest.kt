@@ -12,6 +12,7 @@ import com.findprofessional.marketplace.request.RequestSession
 import com.findprofessional.marketplace.service.MarketplaceService
 import com.findprofessional.marketplace.user.UserAccount
 import com.findprofessional.marketplace.user.UserAccountRepository
+import com.findprofessional.marketplace.user.UserBlockRepository
 import com.findprofessional.marketplace.notification.NotificationService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -33,8 +34,9 @@ class ConversationServiceTest {
     private val profiles = mock(ProfessionalProfileRepository::class.java)
     private val realtime = mock(ConversationSocketHandler::class.java)
     private val notifications = mock(NotificationService::class.java)
+    private val blocks = mock(UserBlockRepository::class.java)
     private val service = ConversationService(
-        conversations, messages, requests, offers, users, profiles, realtime, notifications
+        conversations, messages, requests, offers, users, profiles, realtime, notifications, blocks
     )
 
     @Test

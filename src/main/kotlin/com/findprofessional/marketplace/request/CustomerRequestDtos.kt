@@ -4,6 +4,8 @@ import com.findprofessional.marketplace.matching.ProfessionalOfferStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
+import com.findprofessional.marketplace.professional.PortfolioProjectResponse
+import com.findprofessional.marketplace.professional.ProfessionalServiceOptionResponse
 
 enum class CustomerRequestFilter { ALL, ACTIVE, COMPLETED }
 
@@ -83,7 +85,12 @@ data class CustomerOfferProfessionalResponse(
     val serviceArea: String,
     val experienceYears: Int,
     val about: String,
-    val portfolioImageUrl: String?
+    val portfolioImageUrl: String?,
+    val businessVerified: Boolean = false,
+    val offeredServices: List<ProfessionalServiceOptionResponse> = emptyList(),
+    val portfolio: List<PortfolioProjectResponse> = emptyList(),
+    val averageRating: Double? = null,
+    val reviewCount: Long = 0
 )
 
 data class CustomerOfferRequestResponse(
@@ -91,6 +98,7 @@ data class CustomerOfferRequestResponse(
     val title: String,
     val description: String,
     val serviceName: String,
+    val status: CustomerRequestStatus,
     val location: CustomerRequestLocationResponse?,
     val budget: CustomerRequestBudgetResponse?,
     val submittedOfferCount: Long
@@ -120,4 +128,11 @@ data class CustomerOfferDecisionResponse(
     val offerId: UUID,
     val status: ProfessionalOfferStatus,
     val requestStatus: CustomerRequestStatus
+)
+
+data class RequestCompletionResponse(
+    val requestId: UUID,
+    val status: CustomerRequestStatus,
+    val workFinishedAt: Instant?,
+    val completedAt: Instant?
 )

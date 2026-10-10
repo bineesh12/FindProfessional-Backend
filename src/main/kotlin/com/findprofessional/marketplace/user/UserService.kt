@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
+import com.findprofessional.marketplace.localization.SupportedLocale
 
 @Service
 class UserService(
@@ -60,8 +61,19 @@ class UserService(
         return userRepository.save(user).toResponse()
     }
 
+    @Transactional
+    fun updateLocale(userId: UUID, request: UpdateLocaleRequest): LocaleResponse {
+        val user = requireUser(userId)
+        val normalized = SupportedLocale.normalize(request.languageTag)
+        if (user.preferredLocale != normalized) {
+            user.preferredLocale = normalized
+            userRepository.save(user)
+        }
+        return LocaleResponse(normalized)
+    }
+
     private fun requireUser(userId: UUID): UserAccount =
-        userRepository.findById(userId).orElseThrow {
+        userRepository.findById(userId).filter { it.deletedAt == null }.orElseThrow {
             AuthException("User account was not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND)
         }
 }

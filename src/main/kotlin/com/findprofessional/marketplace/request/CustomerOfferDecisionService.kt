@@ -56,12 +56,17 @@ class CustomerOfferDecisionService(
                         } else {
                             MarketplaceNotificationType.OFFER_DECLINED
                         },
-                        title = if (submittedOffer.id == offer.id) "Offer accepted" else "Request awarded",
-                        body = if (submittedOffer.id == offer.id) {
-                            "Your offer for ${request.title} was accepted"
+                        titleKey = if (submittedOffer.id == offer.id) {
+                            "notification.offer.accepted.title"
                         } else {
-                            "The customer selected another offer for ${request.title}"
+                            "notification.offer.declined.title"
                         },
+                        bodyKey = if (submittedOffer.id == offer.id) {
+                            "notification.offer.accepted.body"
+                        } else {
+                            "notification.offer.declined.body"
+                        },
+                        bodyArguments = listOf(request.title),
                         requestId = request.id,
                         offerId = submittedOffer.id
                     )
@@ -86,8 +91,9 @@ class CustomerOfferDecisionService(
             CreateNotification(
                 userId = offer.professionalUserId,
                 type = MarketplaceNotificationType.OFFER_DECLINED,
-                title = "Offer declined",
-                body = "Your offer for ${request.title} was declined",
+                titleKey = "notification.offer.declined.title",
+                bodyKey = "notification.offer.declined.direct",
+                bodyArguments = listOf(request.title),
                 requestId = request.id,
                 offerId = offer.id
             )
