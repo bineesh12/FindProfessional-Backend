@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class PublicLegalController {
+    @GetMapping("/terms", produces = [MediaType.TEXT_HTML_VALUE])
+    fun termsOfService(): ResponseEntity<Resource> = legalDocument("legal/terms.html", MediaType.TEXT_HTML)
+
     @GetMapping("/privacy", produces = [MediaType.TEXT_HTML_VALUE])
     fun privacyPolicy(): ResponseEntity<Resource> = legalDocument("legal/privacy.html", MediaType.TEXT_HTML)
 

@@ -28,6 +28,15 @@ class PublicLegalControllerTest {
     }
 
     @Test
+    fun `terms of service are served as public html`() {
+        mockMvc.perform(get("/terms"))
+            .andExpect(status().isOk)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+            .andExpect(content().string(containsString("Terms of Service")))
+            .andExpect(content().string(containsString("info@getarbio.com")))
+    }
+
+    @Test
     fun `account deletion instructions are served as public html`() {
         mockMvc.perform(get("/account-deletion"))
             .andExpect(status().isOk)
