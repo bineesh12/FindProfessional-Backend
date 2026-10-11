@@ -8,14 +8,14 @@ class WebCorsConfigurationTest {
     @Test
     fun `allows configured web origin and required headers`() {
         val source = WebCorsConfiguration(
-            WebCorsProperties(listOf("https://getarbio.com", "http://localhost:8080"))
+            WebCorsProperties(listOf("https://www.getarbio.com", "http://localhost:8080"))
         ).corsConfigurationSource()
         val request = MockHttpServletRequest("OPTIONS", "/api/categories")
 
         val configuration = source.getCorsConfiguration(request)
 
         assertThat(configuration?.allowedOrigins).containsExactly(
-            "https://getarbio.com",
+            "https://www.getarbio.com",
             "http://localhost:8080"
         )
         assertThat(configuration?.allowedHeaders).contains(

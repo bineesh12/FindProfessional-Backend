@@ -31,7 +31,7 @@ management:
 app:
   web:
     cors:
-      allowed-origins: ${WEB_ALLOWED_ORIGINS:https://getarbio.com}
+      allowed-origins: ${WEB_ALLOWED_ORIGINS:https://www.getarbio.com}
   subscription:
     enabled: ${PROFESSIONAL_SUBSCRIPTIONS_ENABLED:false}
     free-opportunity-limit: ${FREE_OPPORTUNITY_LIMIT:5}

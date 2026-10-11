@@ -8,7 +8,7 @@ Set these environment variables before starting the backend:
 JWT_SECRET=<at-least-32-random-bytes>
 GOOGLE_CLIENT_IDS=<comma-separated-allowed-google-oauth-client-ids>
 FIREBASE_PROJECT_ID=<firebase-project-id>
-WEB_ALLOWED_ORIGINS=https://getarbio.com
+WEB_ALLOWED_ORIGINS=https://www.getarbio.com
 WEB_AUTH_COOKIE_SECURE=true
 WEB_AUTH_COOKIE_SAME_SITE=Lax
 DATABASE_URL=jdbc:postgresql://localhost:5432/find_professional
@@ -30,7 +30,7 @@ Firebase ID tokens are verified against Firebase's public signing keys. The conf
 - Reusing an old refresh token revokes its entire token family.
 - `POST /api/auth/logout` revokes the token family and returns `204 No Content`.
 
-The web application uses `POST /api/web-auth/firebase`, `/refresh`, and `/logout`. These endpoints keep the rotating refresh token in a Secure, HttpOnly cookie and return only the short-lived access token and user data. Deploy the web application and API behind the same `getarbio.com` origin proxy; do not expose the web refresh token to JavaScript.
+The web application uses `POST /api/web-auth/firebase`, `/refresh`, and `/logout`. These endpoints keep the rotating refresh token in a Secure, HttpOnly cookie and return only the short-lived access token and user data. Deploy the web application and API behind the same `www.getarbio.com` origin proxy; do not expose the web refresh token to JavaScript.
 
 Refresh tokens are stored as SHA-256 hashes in the backend database. The mobile app persists token metadata and authenticated-user UI data in separate typed DataStores. Move client tokens to platform-protected storage before a production release if the threat model requires protection at rest.
 
@@ -70,7 +70,7 @@ EXPOSE_PHONE_CODE=false
 PORTFOLIO_UPLOAD_DIRECTORY=/data/uploads
 REQUIRE_PERSISTENT_UPLOAD_STORAGE=true
 PERSISTENT_UPLOAD_MOUNT_PATH=/data
-WEB_ALLOWED_ORIGINS=https://getarbio.com
+WEB_ALLOWED_ORIGINS=https://www.getarbio.com
 WEB_AUTH_COOKIE_SECURE=true
 WEB_AUTH_COOKIE_SAME_SITE=Lax
 ```
