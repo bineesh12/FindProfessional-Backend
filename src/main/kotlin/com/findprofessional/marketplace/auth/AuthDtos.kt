@@ -76,6 +76,20 @@ data class AuthResponse(
     val user: UserResponse
 )
 
+data class WebAuthResponse(
+    val accessToken: String,
+    val expiresInSeconds: Long,
+    val tokenType: String,
+    val user: UserResponse
+)
+
+fun AuthResponse.toWebResponse() = WebAuthResponse(
+    accessToken = accessToken,
+    expiresInSeconds = expiresInSeconds,
+    tokenType = tokenType,
+    user = user
+)
+
 data class PhoneCodeResponse(
     val verificationId: UUID,
     val expiresAt: Instant,

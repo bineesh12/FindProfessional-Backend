@@ -8,6 +8,7 @@ import com.findprofessional.marketplace.request.RequestInputProperties
 import com.findprofessional.marketplace.professional.PortfolioStorageProperties
 import com.findprofessional.marketplace.notification.NotificationProperties
 import com.findprofessional.marketplace.subscription.SubscriptionProperties
+import com.findprofessional.marketplace.common.WebCorsProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
@@ -21,7 +22,8 @@ import org.springframework.boot.runApplication
     RequestInputProperties::class,
     PortfolioStorageProperties::class,
     NotificationProperties::class,
-    SubscriptionProperties::class
+    SubscriptionProperties::class,
+    WebCorsProperties::class
 )
 class FindProfessionalApplication
 

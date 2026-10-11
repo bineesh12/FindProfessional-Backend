@@ -24,11 +24,13 @@ class SecurityConfig(
     @Bean
     fun securityFilterChain(http: HttpSecurity, activeAccountFilter: ActiveAccountFilter): SecurityFilterChain =
         http
+            .cors { }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 it.requestMatchers("/privacy", "/terms", "/account-deletion", "/legal/**").permitAll()
                 it.requestMatchers("/api/auth/**").permitAll()
+                it.requestMatchers("/api/web-auth/**").permitAll()
                 it.requestMatchers("/actuator/health").permitAll()
                 it.requestMatchers("/uploads/**").permitAll()
                 it.anyRequest().authenticated()

@@ -11,5 +11,7 @@ data class AuthProperties(
     val phoneCodeMinutes: Long = 10,
     val exposePhoneCode: Boolean = false,
     val googleClientIds: Set<String> = emptySet(),
-    val firebaseProjectId: String = ""
+    val firebaseProjectId: String = "",
+    val webCookieSecure: Boolean = true,
+    val webCookieSameSite: String = "Lax"
 )

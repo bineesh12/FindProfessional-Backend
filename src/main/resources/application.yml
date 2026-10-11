@@ -29,6 +29,9 @@ management:
       show-details: never
 
 app:
+  web:
+    cors:
+      allowed-origins: ${WEB_ALLOWED_ORIGINS:https://getarbio.com}
   subscription:
     enabled: ${PROFESSIONAL_SUBSCRIPTIONS_ENABLED:false}
     free-opportunity-limit: ${FREE_OPPORTUNITY_LIMIT:5}
@@ -78,3 +81,5 @@ app:
     expose-phone-code: ${EXPOSE_PHONE_CODE:false}
     google-client-ids: ${GOOGLE_CLIENT_IDS:}
     firebase-project-id: ${FIREBASE_PROJECT_ID:}
+    web-cookie-secure: ${WEB_AUTH_COOKIE_SECURE:true}
+    web-cookie-same-site: ${WEB_AUTH_COOKIE_SAME_SITE:Lax}
